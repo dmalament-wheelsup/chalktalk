@@ -2,6 +2,7 @@
 *.duckdb
 *.duckdb.wal
 *.duckdb.tmp/
+*.duckdb.building
 data/
 
 # nflverse downloads / ingest cache
@@ -30,3 +31,6 @@ htmlcov/
 
 # macOS
 .DS_Store
+
+# Local CHALKTALK_HOME, if pointed inside the repo
+.chalktalk/

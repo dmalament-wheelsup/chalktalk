@@ -101,7 +101,7 @@ the same machinery answers ten unrelated questions.
 
 | Phase | Status | Date | Commit | Notes |
 |-------|--------|------|--------|-------|
-| 1 | not started | | | |
+| 1 | done | 2026-09-07 | _pending_ | |
 | 2 | not started | | | |
 | 3 | not started | | | |
 | 4 | not started | | | Gate A |
@@ -109,7 +109,7 @@ the same machinery answers ten unrelated questions.
 | 6 | not started | | | |
 | 7 | not started | | | Gate B |
 | 8 | not started | | | |
-| 9 | not started | | | read at phase 1 |
+| 9 | in progress | 2026-09-07 | | tiers + unit CI in place; fixtures and mini DB land with phases 4/7 |
 | 10 | not started | | | |
 
 Statuses: `not started` · `in progress` · `blocked (reason)` · `done`.

@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "chalktalk"
+version = "0.1.0"
+description = "An MCP server for composite NFL questions where the hard part is agreeing on what the words mean."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "David Malament" }]
+dependencies = [
+    "mcp>=1.2,<2",
+    "duckdb>=1.5",
+    "nflreadpy>=0.1.5",
+    "polars>=1.30",
+    "pyarrow>=17",
+    "pydantic>=2.7",
+    "click>=8.1",
+    "platformdirs>=4",
+    "pyyaml>=6",
+]
+
+[project.scripts]
+chalktalk = "chalktalk.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "pytest-cov", "ruff>=0.6"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/chalktalk"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Docs are the contract this code implements; ruff formats Python blocks inside
+# markdown, and the plan's compact snippets are not meant to be reformatted.
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "T20"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/chalktalk/cli.py" = ["T20"]
+"tests/*" = ["T20"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["data: requires a built database under CHALKTALK_HOME"]
+addopts = "-m 'not data'"

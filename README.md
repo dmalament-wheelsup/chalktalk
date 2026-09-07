@@ -3,8 +3,9 @@
 An MCP server for composite NFL questions where the hard part is agreeing on what
 the words mean.
 
-> **Status: design spec. No implementation yet.** This repo currently holds the
-> architecture and the reasoning behind it. Code to follow.
+> **Status: in progress.** Phase 1 (scaffold) is done; the ingest, feature layer
+> and server are not. See [`docs/plan/00-index.md`](docs/plan/00-index.md) for the
+> phase ledger.
 
 ## The problem
 
@@ -46,6 +47,29 @@ definitions produced it.
 Over time you accumulate a personal metric vocabulary you never sat down to
 design. This inverts the usual semantic-layer model, where a data team authors
 definitions up front.
+
+## Install (development)
+
+Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
+
+```bash
+uv sync
+```
+
+```bash
+uv run chalktalk doctor
+```
+
+`doctor` prints the resolved paths under `CHALKTALK_HOME` (default
+`~/.chalktalk`), whether a built database is present, and the versions of duckdb,
+nflreadpy and polars it will use.
+
+```bash
+uv run pytest
+```
+
+The default run is the unit tier and needs no data. Tests that require a built
+database are marked `data` and are opt-in: `uv run pytest -m data`.
 
 ## Design
 
