@@ -101,7 +101,7 @@ the same machinery answers ten unrelated questions.
 
 | Phase | Status | Date | Commit | Notes |
 |-------|--------|------|--------|-------|
-| 1 | done | 2026-09-07 | _pending_ | |
+| 1 | done | 2026-09-07 | e753384 | |
 | 2 | not started | | | |
 | 3 | not started | | | |
 | 4 | not started | | | Gate A |
