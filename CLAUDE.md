@@ -1,4 +1,4 @@
-# NFL Analytics MCP Server
+# chalktalk
 
 An MCP server for composite NFL questions where the hard part is agreeing on
 what the words mean.
