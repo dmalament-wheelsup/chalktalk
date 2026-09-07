@@ -102,7 +102,7 @@ the same machinery answers ten unrelated questions.
 | Phase | Status | Date | Commit | Notes |
 |-------|--------|------|--------|-------|
 | 1 | done | 2026-09-07 | e753384 | |
-| 2 | done | 2026-09-07 | _pending_ | 6 amendments; 719 MB artifact in ~60s |
+| 2 | done | 2026-09-07 | 64d27b1 | 6 amendments; 719 MB artifact in ~60s |
 | 3 | not started | | | |
 | 4 | not started | | | Gate A |
 | 5 | not started | | | |
