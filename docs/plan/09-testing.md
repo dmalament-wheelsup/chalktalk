@@ -60,13 +60,17 @@ cases:
   - {id: chubb_2023_w2,      player: "Nick Chubb",         season: 2023, week: 2,  team: CLE, unit: offense, snaps_unit: 18, share: 0.21, expect_exit: true, fact: "knee, Q2 at PIT (MNF); IR"}
   - {id: richardson_2023_w5, player: "Anthony Richardson", season: 2023, week: 5,  team: IND, unit: offense, snaps_unit: 22, share: 0.33, expect_exit: true, fact: "AC joint sprain, Q2 vs TEN; IR later"}
   - {id: burrow_2023_w11,    player: "Joe Burrow",         season: 2023, week: 11, team: CIN, unit: offense, snaps_unit: 27, share: 0.44, expect_exit: true, fact: "wrist, Q2 at BAL (TNF); IR"}
+  # injury exit corroborated by the injury report only — he PLAYED the next game (tests listed_injured_next)
+  - {id: evans_2020_w17,    player: "Mike Evans",       season: 2020, week: 17, team: TB,  unit: offense, snaps_unit: 11, share: 0.16, expect_exit: true,  fact: "hyperextended knee vs ATL in the final regular-season week; listed Questionable/Limited (Knee) for the wild-card game and played 61 snaps in it"}
   # late exit: shipped left_early (>= 25% of unit plays missed) must NOT flag; a 3% threshold must
   - {id: cousins_2023_w8, player: "Kirk Cousins", season: 2023, week: 8, team: MIN, unit: offense, snaps_unit: 61, share: 0.85, expect_exit: false, expect_exit_with_tail_0_03: true, fact: "Achilles, Q4 at GB; IR"}
-  # rested starters: low snaps, no injury, played the next game — must NOT match
+  # rested starters in the final regular-season week (17 through 2020, 18 from 2021): played the next game — must NOT match
+  - {id: allen_2019_w17,     player: "Josh Allen",        season: 2019, week: 17, team: BUF, unit: offense, snaps_unit: 7,  share: 0.11, expect_exit: false, fact: "rested with the 5 seed locked (Barkley finished); played all 85 snaps in the wild-card game"}
   - {id: williams_2023_w18,  player: "Trent Williams",    season: 2023, week: 18, team: SF, unit: offense, snaps_unit: 12, share: 0.20, expect_exit: false, fact: "rested, 1 seed clinched; played the divisional round"}
   - {id: hainsey_2022_w18,   player: "Robert Hainsey",    season: 2022, week: 18, team: TB, unit: offense, snaps_unit: 13, share: 0.24, expect_exit: false, fact: "rested, division clinched; played the wild-card game"}
   - {id: fournette_2022_w18, player: "Leonard Fournette", season: 2022, week: 18, team: TB, unit: offense, snaps_unit: 3,  share: 0.05, expect_exit: false, fact: "rested; played the wild-card game"}
   # backup cameos: low snaps because not a starter — must NOT match
+  - {id: bridgewater_2019_w17, player: "Teddy Bridgewater", season: 2019, week: 17, team: NO, unit: offense, snaps_unit: 11, share: 0.16, expect_exit: false, fact: "Brees started; Bridgewater's recent window (two starts at ~96% plus two cameos) averages 0.52, and he did not play in the wild-card game because Brees was healthy. This case is why missed_next_game requires `started` — absence alone would flag him"}
   - {id: devito_2023_w18,   player: "Tommy DeVito",    season: 2023, week: 18, team: NYG, unit: offense, snaps_unit: 4, share: 0.06, expect_exit: false, fact: "relief appearance; Giants' season ended, so no next game (uncorroborable)"}
   - {id: brissett_2022_w18, player: "Jacoby Brissett", season: 2022, week: 18, team: CLE, unit: offense, snaps_unit: 1, share: 0.02, expect_exit: false, fact: "backup cameo behind Watson"}
 ```
@@ -84,7 +88,7 @@ sanity check, then freeze by replacing `record` with `assert`.
 - {player: "Nick Bosa",          season: 2020, star_by_snaps: {record: null},  star_by_contract: {record: null},  star_by_draft: {assert: true}}
 - {player: "Aaron Rodgers",      season: 2017, star_by_snaps: {assert: true},  star_by_contract: {assert: true},  star_by_draft: {assert: true}}
 - {player: "Saquon Barkley",     season: 2020, star_by_snaps: {assert: true},  star_by_contract: {record: null},  star_by_draft: {assert: true}}
-- {player: "J.J. Watt",          season: 2017, star_by_snaps: {assert: false, why: "2016 was 3 games (back); under 8 games with snaps, so not eligible"}, star_by_contract: {assert: true}, star_by_draft: {assert: true}}
+- {player: "J.J. Watt",          season: 2017, star_by_snaps: {assert: false, why: "2016 was 3 of 16 games (back); games_played_share 0.19, not eligible"}, star_by_contract: {assert: true}, star_by_draft: {assert: true}}
 - {player: "Ryan Shazier",       season: 2017, star_by_snaps: {record: null},  star_by_contract: {record: null},  star_by_draft: {assert: true}}
 - {player: "Trey Lance",         season: 2022, star_by_snaps: {assert: false}, star_by_contract: {assert: false}, star_by_draft: {assert: true}}
 - {player: "Nick Chubb",         season: 2023, star_by_snaps: {assert: true},  star_by_contract: {record: null},  star_by_draft: {assert: false, why: "round 2, pick 35"}}

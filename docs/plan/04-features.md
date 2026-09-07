@@ -71,6 +71,9 @@ From `schedules` (season ≥ floor) plus `pbp` aggregates.
 | `season, week` | int | |
 | `game_type` | str | REG WC DIV CON SB |
 | `is_postseason` | bool | `game_type <> 'REG'` |
+| `reg_weeks` | int | that season's number of regular-season weeks (17 through 2020, 18 from 2021) — from `season_status` |
+| `is_final_reg_week` | bool | `game_type = 'REG' AND week = reg_weeks` — the era-neutral "rest week" (D24) |
+| `weeks_remaining_reg` | int | `reg_weeks - week` for REG games; NULL in the postseason |
 | `gameday` | date | |
 | `weekday` | str | Sunday … |
 | `gametime` | str | `'HH:MM'` Eastern kickoff |
@@ -103,6 +106,8 @@ From `schedules` (season ≥ floor) plus `pbp` aggregates.
 | `points_for, points_against, margin` | int | team-relative |
 | `won, lost, tied` | bool | NULL until final |
 | `rest_days, opp_rest_days` | int | |
+| `games_played_before` | int | this team's REG games already played this season (0 in week 1); era-neutral progress |
+| `season_progress` | float | `games_played_before / games_per_team` |
 | `spread` | float | team-relative: **negative = team favoured**; derive from `spread_line` once its sign is verified |
 | `favorite` | bool | `spread < 0`; NULL when no line |
 | `covered` | bool | `margin + spread > 0` |
@@ -124,11 +129,13 @@ All are standard nflfastR names; assert they exist at build time.
 
 ## `team_season` — entity `team_season`
 
-`season, team, games, wins, losses, ties, win_pct, points_for, points_against,
-point_diff, made_playoffs` (exists postseason `team_game`), `playoff_wins,
+`season, team, games, games_per_team, wins, losses, ties, win_pct, points_for,
+points_against, point_diff, points_for_per_game, points_against_per_game,
+made_playoffs` (exists postseason `team_game`), `playoff_wins,
 off_epa_per_play, def_epa_per_play, pass_rate` (REG only), `division,
 conference` (from `teams`; verify column names, likely `team_division`,
-`team_conf`).
+`team_conf`). Per-game rates exist because 16- and 17-game totals are not
+comparable (D24).
 
 ## `player_play` — helper, 2016+
 
@@ -153,11 +160,13 @@ Regular season only unless stated.
 | `games_with_snaps` | int | `snaps_unit >= 1` |
 | `snaps_unit_total, snap_share_mean, snap_share_max` | | over games with snaps |
 | `team_games, games_missed` | int | `team_primary`'s REG games; `team_games - games_with_snaps` |
+| `games_played_share` | float | `games_with_snaps / team_games` — era-neutral availability; the default percentile eligibility is `>= 0.5` (D13, D24) |
 | `years_exp` | int | max over the season |
 | `is_rookie` | bool | `players.rookie_season = season` |
 | `draft_year, draft_round, draft_pick, undrafted` | | from `players`; fallback `draft_picks` by `gsis_id` |
 | `contract_year_signed, contract_years, apy, apy_cap_pct, guaranteed` | | contract active in `season`: `year_signed <= season < year_signed + years`; latest `year_signed` wins |
 | `attempts, completions, passing_yards, passing_tds, passing_interceptions, sacks_suffered, carries, rushing_yards, rushing_tds, targets, receptions, receiving_yards, receiving_tds, fantasy_points, fantasy_points_ppr` | | summed from `player_stats` (REG). **Use the names phase 2 recorded**; omit any that don't exist and amend |
+| `<stat>_per_game` | float | every production total above divided by `games_with_snaps`; e.g. `carries_per_game`. A "300-carry season" is 17.6/game in a 17-game season and 18.75 in a 16-game one — say it per game (D24) |
 | `qb_starts` | int | games where `team_game.starting_qb_id = gsis_id` |
 | `first_unit_play_games` | int | 2016+: games with `pp_first_idx = 1` |
 
@@ -173,7 +182,7 @@ Regular season only unless stated.
 | `roster_status` | str | `rosters_weekly.status` that week (ACT, RES, …) |
 | `years_exp` | int | |
 | `is_rookie` | bool | |
-| `is_starting_qb` | bool | `gsis_id` equals this team's QB in `schedules` |
+| `is_starting_qb` | bool | `gsis_id` equals this team's QB in `schedules`. nflverse's field is the listed starter, which can differ from who took the first snap (2019 W17 BUF lists Barkley; Allen played the first series) — `pp_first_idx = 1` is the first-snap notion |
 | `inj_listed` | bool | an `injuries` row for this season/week with `report_status IS NOT NULL OR practice_status IN (DNP, Limited)` |
 | `inj_report_status, inj_practice_status, inj_primary_injury` | str | this game's report |
 | production stats | | same list as `player_season`, per game, from `player_stats` by `(game_id, gsis_id)` |
@@ -286,8 +295,12 @@ For each case in `tests/fixtures/exits.yaml` find the `player_game` row by
   `next.inj_listed` (join the next row), `reserve_within_3_games`,
   `played_team_next_game = false`.
 - For the rested cases: `played_team_next_game = true`.
-- For the backup cameos: `corroboration_available = false` or
-  `baseline_share < 0.5`.
+- For the backup cameos: not started — `is_starting_qb = false` and
+  (`pp_first_idx IS NULL OR pp_first_idx <> 1`). (Bridgewater 2019 W17 has
+  `corroboration_available = true` and `baseline_share ≈ 0.52`, so neither of
+  those would exclude him; starting is what does.)
+- For `evans_2020_w17`: `played_team_next_game = true` **and** `next.inj_listed
+  = true` — the report-only corroboration path.
 
 On failure print the full row. The data wins over the fixture's football fact
 only after the join has been checked; see the first-run protocol in phase 9.
@@ -313,16 +326,18 @@ logic; use window functions over `team_game` / `player_game` instead.
 
 ## Pitfalls
 
-- Postseason week numbering must agree across `schedules`, `rosters_weekly`,
-  `injuries` (all use 19+ for playoffs — verify with one query per table).
+- Postseason week numbering agrees across `schedules`, `rosters_weekly`,
+  `injuries`, `snap_counts` within each era (verified: playoffs are weeks
+  18–21 through 2020 and 19–22 from 2021). Never test `week >= 19`; use
+  `game_type` (D24).
 - Bye weeks: `team_next_game_id` comes from ordering, not `week + 1`.
 - A player on both units in one game: `unit` by `position_group` decides.
 - Traded players: `team_next_game_id` is the *team's* next game; a traded
   player shows `played_team_next_game = false`. Accept and document in the
   attribute description.
-- `recent_snap_share` must not cross seasons or game types incorrectly:
-  partition by `(player_key, season)`, order by `week` (postseason weeks sort
-  after 18 naturally).
+- `recent_snap_share` must not cross seasons: partition by `(player_key,
+  season)`, order by `week` (postseason weeks sort after the final REG week in
+  both eras).
 - `spread_line` sign: check one famous game with a known favourite and write
   the finding into the catalog description and `00-index.md` amendments.
 

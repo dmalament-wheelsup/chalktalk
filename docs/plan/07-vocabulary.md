@@ -43,9 +43,9 @@ into `player_game` via `cur`):
 | `rookie` | `is_rookie = true` |
 | `first_round_pick` | `draft_round = 1` |
 | `undrafted` | `undrafted = true` |
-| `heavy_carries` | `percentile`: `carries`, cohort `[season, position_group]`, top 90, eligible `games_with_snaps >= 8` |
+| `heavy_carries` | `percentile`: `carries`, cohort `[season, position_group]`, top 90, eligible `games_played_share >= 0.5` — cohort is per season, so 16- vs 17-game totals never compete |
 | `leading_rusher` | `rank`: `carries`, cohort `[season, team_primary]`, top 1 |
-| `star_by_snaps` | basis `prior_season`; `percentile`: `snap_share_mean`, cohort `[season, position_group]`, top 90, eligible `games_with_snaps >= 8` |
+| `star_by_snaps` | basis `prior_season`; `percentile`: `snap_share_mean`, cohort `[season, position_group]`, top 90, eligible `games_played_share >= 0.5` |
 | `star_by_contract` | basis `prior_season`; `percentile`: `apy_cap_pct`, cohort `[season, position_group]`, top 90, eligible `apy_cap_pct is_not_null` |
 | `star_by_draft` | basis `prior_season`; `rule`: `draft_round = 1` |
 
@@ -58,10 +58,12 @@ Player-game (entity `player_game`):
 | `left_early` | rule | `pp_missed_tail_frac >= 0.25` — prefers participation |
 | `snap_drop` | delta | `snap_share_unit` ratio `<= 0.5` × `baseline_share`, `min_baseline 0.3` |
 | `exit_evidence` | composite | `any_of [left_early, snap_drop]` |
+| `started` | rule | `any: is_starting_qb = true, pp_first_idx = 1` — on the field for the team's first unit play (2016+), or the listed starting QB (all seasons) |
 | `listed_injured_next` | rule | `next.inj_listed = true` |
 | `on_reserve_soon` | rule | `reserve_within_3_games = true` |
 | `missed_next_game` | rule | `played_team_next_game = false` |
-| `exit_corroborated` | composite | `any_of [listed_injured_next, on_reserve_soon, missed_next_game]` |
+| `missed_next_game_as_starter` | composite | `all_of [missed_next_game, started]` — absence alone is weak evidence for a backup (see Bridgewater 2019 W17 in the fixtures); require that the player started this game |
+| `exit_corroborated` | composite | `any_of [listed_injured_next, on_reserve_soon, missed_next_game_as_starter]` |
 | `early_exit` | composite | `all_of [played, regular, exit_evidence, exit_corroborated]` |
 
 Team-game (entity `team_game`): `won` (`won = true`), `lost` (`lost = true`),
@@ -71,8 +73,9 @@ true`), `underdog` (`favorite = false`), `short_week` (`rest_days <= 5`).
 Team-season (entity `team_season`): `playoff_team` (`made_playoffs = true`).
 
 Game (entity `game`): `primetime` (`gametime >= '20:00'`), `division_game`
-(`div_game = true`), `postseason` (`is_postseason = true`), `blowout`
-(`margin_abs >= 17`), `one_score` (`margin_abs <= 8`).
+(`div_game = true`), `postseason` (`is_postseason = true`), `final_reg_week`
+(`is_final_reg_week = true` — week 17 through 2020, week 18 from 2021, without
+saying either), `blowout` (`margin_abs >= 17`), `one_score` (`margin_abs <= 8`).
 
 Play (entity `play`): `went_for_it` (`all: down = 4, play_type in [pass, run]`),
 `red_zone` (`yardline_100 <= 20`), `garbage_time` (`any: wp <= 0.05, wp >= 0.95`).
@@ -82,16 +85,24 @@ reader, and `provenance.note` explaining any non-obvious threshold (e.g.
 `regular`'s 0.5 excludes rotational linemen and committee backs — that is the
 user's call to change).
 
-**Not shipped, on purpose:** `star_player`, `starter`, `injury_exit`. They are
-the vocabulary's on-ramp: the gate fires, `propose_definition` offers the
-pieces, the user decides.
+**Not shipped, on purpose:** `star_player`, `starter` (a role — different from
+`started`, which is a per-game fact), `injury_exit`. They are the vocabulary's
+on-ramp: the gate fires, `propose_definition` offers the pieces, the user
+decides.
+
+Before 2016 `pp_first_idx` is NULL, so `started` holds only for the listed
+starting QB; non-QB exits in 2013–2015 are corroborated by the injury report
+or the reserve list alone. `explain` surfaces this through `prefers()`.
 
 ## Gate B
 
 ### `test_gate_b_exits.py`
 For every case in `tests/fixtures/exits.yaml`, run through the real pipeline:
 `QueryPlan(entity=player_game, where=[{term: early_exit}, {attr: player_name, op: "=", value: …}, {attr: week …}, {attr: team …}], seasons=that season, game_types=["*"], metrics=[count])`.
-Expect `count == 1` when `expect_exit` else `0`. For `cousins_2023_w8`
+Expect `count == 1` when `expect_exit` else `0`. `evans_2020_w17` must match
+through `listed_injured_next` alone (he played the next game);
+`bridgewater_2019_w17` must not match (his absence from the next game is not
+corroboration because he did not start). For `cousins_2023_w8`
 additionally: save `left_early_late` (`pp_missed_tail_frac >= 0.03`) and
 `early_exit_late` (`all_of [played, regular, left_early_late,
 exit_corroborated]`) into a temporary definitions dir → expect 1.

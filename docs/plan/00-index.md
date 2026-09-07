@@ -178,8 +178,10 @@ src/chalktalk/
 
 **Data conventions.**
 - `season` and `week` are `INTEGER` in every table. Cast at ingest.
-- `game_type` ∈ `REG WC DIV CON SB` (from `schedules`). Postseason weeks are
-  19–22. `is_postseason = game_type <> 'REG'`.
+- `game_type` ∈ `REG WC DIV CON SB` (from `schedules`). `is_postseason =
+  game_type <> 'REG'` — never a week-number test. Week numbering changed with
+  the 17-game season (D24): through 2020 the regular season is weeks 1–17 and
+  the playoffs 18–21; from 2021 it is 1–18 and 19–22.
 - `gsis_id` (`00-0012345`) is the canonical player id. Snap counts are keyed by
   PFR id and are crosswalked (D6). `player_key = coalesce(gsis_id, 'pfr:' || pfr_id)`.
 - `position_group` ∈ `QB RB WR TE OL DL LB DB SPEC`. `unit` is `offense` for
@@ -271,8 +273,8 @@ the covered subset; the envelope lists excluded seasons.
 
 **D13 — Percentiles and ranks are computed at query time.** `percentile` and
 `rank` compile to window functions over the cohort the definition names, with
-an `eligible` rule (default for player-season cohorts: `games_with_snaps >= 8`;
-overridable per definition). Nothing is precomputed, so any numeric attribute
+an `eligible` rule (default for player-season cohorts: `games_played_share >=
+0.5`, i.e. half the team's games — era-neutral; overridable per definition). Nothing is precomputed, so any numeric attribute
 can be ranked within any cohort without a rebuild. DuckDB handles this at this
 scale in milliseconds.
 
@@ -280,11 +282,16 @@ scale in milliseconds.
 Cousins tore his Achilles in Q4 of 2023 W8 after 61 snaps (85%). Low-snap
 heuristics miss him; participation data (last play on the field) does not.
 The shipped `early_exit` is a composite: played ∧ regular ∧ (left-early-by-
-participation ∨ snap-drop) ∧ corroborated-next-game. Every piece is its own
+participation ∨ snap-drop) ∧ corroborated. Corroboration is any of: listed on
+the next game's injury report, on the reserve list within three games, or
+*missed the next game having started this one* — the last qualifier exists
+because Teddy Bridgewater 2019 W17 (backup, 11 snaps, sat the wild-card game
+behind a healthy Brees) would otherwise count. Every piece is its own
 definition a user can swap.
 
-**D15 — Rested starters.** Week-18 rest looks like an exit in snap counts
-(Trent Williams 2023 W18: 12 snaps vs a 90% average — verified). The
+**D15 — Rested starters.** Final-week rest (week 17 through 2020, week 18
+from 2021) looks like an exit in snap counts (Trent Williams 2023 W18: 12
+snaps vs a 90% average — verified). The
 distinguishing fact is the player plays the next game. Corroboration handles
 it. When there is no next game the case is uncorroborable and excluded by the
 shipped definition; a user who wants season-enders composes a variant. Matched
@@ -316,6 +323,21 @@ valuable as the data behind them.
 **D22 — No concept-specific code.** The signal set is closed at five. A
 "concept" is a definition. The test is phase 7's generality suite: ten
 unrelated questions with no code changes.
+
+**D24 — Era changes are data, never constants.** The 17-game season (2021),
+the 14-team playoff (2020), and any future change must not appear as a number
+in code or in a definition. Verified from the data: through 2020 the regular
+season is weeks 1–17 with playoffs 18–21 and 16 games per team; from 2021 it
+is weeks 1–18, playoffs 19–22, 17 games — and `schedules`, `snap_counts`,
+`injuries` and `rosters_weekly` all agree within each era. The feature layer
+therefore exposes era-neutral attributes: `season_status.reg_weeks` and
+`games_per_team`; `game_ctx.is_final_reg_week` and `weeks_remaining_reg`;
+`team_game.games_played_before` and `season_progress`; `player_season.
+games_played_share` and `*_per_game` rates for every production total;
+`team_season.*_per_game`. Percentile cohorts are per season, so they are
+era-neutral by construction; absolute totals are not, which is why per-game
+rates exist. Anything that says "week 18" or "16 games" in a definition is a
+bug in the vocabulary, not a fact about football.
 
 **D23 — `started` is derived from data, not depth charts.** `is_starting_qb`
 comes from `schedules.home_qb_id/away_qb_id` (all seasons). For other
@@ -367,6 +389,15 @@ PFR-granular (`C CB DE DT FB FS G K LB LS NT P QB RB SS T TE WR`).
 
 Join keys: `participation.nflverse_game_id = pbp.game_id` and `play_id` match
 100% of 2023 rows (both `Float64` upstream — cast to `BIGINT`).
+
+Week numbering by era (verified on `schedules`, `snap_counts`, `injuries`,
+`rosters_weekly` for 2013, 2020, 2021, 2023):
+
+| seasons | REG weeks | WC | DIV | CON | SB | games/team | WC games |
+|---|---|---|---|---|---|---|---|
+| 2013–2019 | 1–17 | 18 | 19 | 20 | 21 | 16 | 4 |
+| 2020 | 1–17 | 18 | 19 | 20 | 21 | 16 | 6 |
+| 2021– | 1–18 | 19 | 20 | 21 | 22 | 17 | 6 |
 
 ---
 

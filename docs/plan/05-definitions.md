@@ -113,11 +113,12 @@ when the attribute is nullable.
 
 ```json
 {"attr": "snap_share_mean", "cohort": ["season", "position_group"], "pctile": 90,
- "direction": "top", "eligible": {"match": "all", "rules": [{"attr": "games_with_snaps", "op": ">=", "value": 8}]}}
+ "direction": "top", "eligible": {"match": "all", "rules": [{"attr": "games_played_share", "op": ">=", "value": 0.5}]}}
 ```
 `attr` and `cohort` are `self` attributes of the definition's entity.
 `direction` ∈ `top | bottom`. `eligible` is optional `rule` params; default
-for `player_season` is `games_with_snaps >= settings.pctile_default_min_games`,
+for `player_season` is `games_played_share >= settings.pctile_default_min_share`
+(half the team's games — the same fraction in 16- and 17-game seasons, D24),
 for other entities none.
 
 Semantics (ties matter — see Pitfalls): `top` with `pctile = P` means
@@ -130,7 +131,7 @@ Compiles to a CTE over the entity table (`WHERE attr IS NOT NULL AND
 `({self}.k1, {self}.k2) IN (SELECT k1, k2 FROM <cte> WHERE cd >= ?)`. CTE names
 are `pct_<defname>` (unique per definition; composites may include several).
 Explain: "snap_share_mean at or above the 90th percentile within season and
-position_group (among rows with games_with_snaps ≥ 8)".
+position_group (among rows with games_played_share ≥ 0.5)".
 
 ### `rank`
 

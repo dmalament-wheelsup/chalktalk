@@ -32,8 +32,9 @@ coverage_columns(
 coverage_seasons(table_name VARCHAR, season INTEGER, row_count BIGINT,
   first_week INTEGER, last_week INTEGER, weeks_present INTEGER)
 
-season_status(season INTEGER, reg_games_scheduled INTEGER, reg_games_final INTEGER,
-  post_games_final INTEGER, complete BOOLEAN, in_progress BOOLEAN, queryable BOOLEAN)
+season_status(season INTEGER, reg_weeks INTEGER, games_per_team INTEGER, playoff_teams INTEGER,
+  reg_games_scheduled INTEGER, reg_games_final INTEGER, post_games_final INTEGER,
+  complete BOOLEAN, in_progress BOOLEAN, queryable BOOLEAN)
 ```
 
 ## Algorithm
@@ -48,7 +49,10 @@ baseline_lookback` (2012 rows are real data for baselines).
 
 Tables without `season`: `seasonal = false`, first/last NULL, counts only.
 
-`season_status` from `schedules`: `reg_games_scheduled = count(game_type='REG')`,
+`season_status` from `schedules` (D24 — never hard-code these): `reg_weeks =
+max(week) WHERE game_type = 'REG'`; `games_per_team = max games any team plays
+in REG`; `playoff_teams = count(distinct team) in postseason games`;
+`reg_games_scheduled = count(game_type='REG')`,
 `reg_games_final = count(… AND home_score IS NOT NULL)`, `post_games_final`
 likewise for postseason; `complete = final = scheduled AND scheduled > 0`;
 `in_progress = final > 0 AND NOT complete`; `queryable = season >= floor`.
@@ -89,7 +93,8 @@ uv run pytest -m data tests/data/test_coverage_registry.py
 Data test asserts: `snap_counts.offense_snaps` first 2012; `participation.
 offense_players` first ≥ 2016; `pbp.epa` first 2013; no seasonal table has
 `first_season < floor - 1`; `season_status` has every season from floor to
-current with `queryable = true`.
+current with `queryable = true`; `reg_weeks` is 17 and `games_per_team` 16 for
+2013–2020, 18 and 17 from 2021; `playoff_teams` is 12 through 2019 and 14 from 2020.
 
 ## Pitfalls
 

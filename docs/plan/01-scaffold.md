@@ -68,7 +68,7 @@ tests/unit/test_db.py
        home: Path                         # CHALKTALK_HOME, default ~/.chalktalk
        season_floor: int = 2013           # CHALKTALK_SEASON_FLOOR
        baseline_lookback: int = 1         # seasons of history for prior-season attributes
-       pctile_default_min_games: int = 8  # D13 default eligibility
+       pctile_default_min_share: float = 0.5   # D13/D24: share of team games for percentile eligibility
        raw_sql_row_cap: int = 500         # CHALKTALK_RAW_SQL_ROW_CAP
        raw_sql_timeout_s: float = 10.0    # CHALKTALK_RAW_SQL_TIMEOUT
        query_row_cap: int = 1000
