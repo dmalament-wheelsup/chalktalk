@@ -1,0 +1,86 @@
+# chalktalk
+
+An MCP server for composite NFL questions where the hard part is agreeing on what
+the words mean.
+
+> **Status: design spec. No implementation yet.** This repo currently holds the
+> architecture and the reasoning behind it. Code to follow.
+
+## The problem
+
+Take a real question:
+
+> "How many times have star players played fewer than 15 snaps before leaving
+> with injury? Total by season."
+
+Three of those phrases have no corresponding field anywhere in the data:
+
+- **"star players"** — no such marker exists. Prior-season snap share above some
+  percentile? Draft capital? Pro Bowl selection? Contract APY? Each yields a
+  different answer.
+- **"before leaving with injury"** — nothing records in-game exits. The injuries
+  table is the weekly *report* — practice participation and game designation,
+  published before kickoff. Exits have to be inferred.
+- **"fewer than 15 snaps"** — the only clean one, and it still needs a decision
+  about whether special teams counts.
+
+A text-to-SQL system will silently pick definitions and return a confident
+number. chalktalk refuses to do that.
+
+## The definition gate
+
+The query tool **rejects** any call containing an unresolved term:
+
+```json
+{ "error": "unresolved_term",
+  "term": "star_player",
+  "message": "No definition found. Call propose_definition first.",
+  "suggestions": ["..."] }
+```
+
+`propose_definition` then returns candidates grounded in what is actually
+computable, each tagged with the seasons it covers. You pick or edit. The choice
+is saved and reused silently from then on, and every answer states which
+definitions produced it.
+
+Over time you accumulate a personal metric vocabulary you never sat down to
+design. This inverts the usual semantic-layer model, where a data team authors
+definitions up front.
+
+## Design
+
+Architecture and rationale: [`CLAUDE.md`](CLAUDE.md).
+Rejected alternatives and why: [`docs/decision-history.md`](docs/decision-history.md).
+
+The short version: one process, one DuckDB file on local disk, 2013 season floor,
+Python. Definitions are stored as specs rather than SQL and live outside the
+database, which is discarded and rebuilt weekly.
+
+## Data and attribution
+
+Data comes from [nflverse](https://github.com/nflverse/nflverse-data), via
+`nflreadpy`. chalktalk distributes code, not data — you pull from nflverse
+yourself when you build the database.
+
+Two distinct layers, worth keeping separate:
+
+- The **compiled nflverse dataset** is licensed CC BY 4.0 (attribution, no
+  ShareAlike).
+- The **underlying NFL data** belongs to its respective owners and is governed by
+  their terms of use. nflverse does not claim to grant rights to it, and neither
+  does this project.
+
+**The MIT license on this repository covers this project's code only.** It grants
+no rights to NFL data.
+
+## Credits
+
+- [nflverse](https://github.com/nflverse) for the data infrastructure this is
+  built on.
+- [`nfl-mcp`](https://github.com/ebhattad/nfl-mcp) (MIT) — the ingest module here
+  is adapted from theirs, with the notice retained. It solves a different problem
+  well: if you want a fantasy football tool, use it rather than this.
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).

@@ -197,11 +197,28 @@ the analyst authors them mid-question, as a byproduct of curiosity.
 
 ---
 
+## Rejected: copyleft for the code
+
+Considered because one of this thread's own conclusions cuts toward it — "hosted,
+no install is forkable in a weekend" is exactly the situation AGPL exists for.
+
+Dropped, because it would protect the wrong asset. The moat identified here is a
+curated definitions vocabulary, and that is content, not code; a code copyleft
+does not reach it. The cost, meanwhile, is real — copyleft is friction for a tool
+whose entire distribution model is other people installing and running it.
+
+MIT instead, matching `nfl-mcp` and `nflreadpy`, so the vendored ingest raises no
+compatibility question. Apache-2.0 remains the sane upgrade if a patent grant or
+explicit contributor terms ever matter; the switch is cheap while the contributor
+list is short.
+
 ## Still open
 
 - **nflverse attribution.** Courtesy, not a blocker — see CLAUDE.md. Downgraded
   from "biggest risk in the project" once hosting and monetization came off the
-  table.
+  table. The *license* half is closed: nflverse-data is CC BY 4.0, plain
+  attribution, no ShareAlike (verified from `LICENSE.md`, 2026-09-07). What
+  remains is asking nflverse how they'd like to be credited.
 - Which "star player" definitions ship as suggested defaults.
 - Whether the community definitions repo is worth building.
 

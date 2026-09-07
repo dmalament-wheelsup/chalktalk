@@ -178,6 +178,27 @@ amount of architecture saves it.
 A rested starter in a Week 18 game with nothing at stake looks identical in the
 data to an injury exit. Return matched rows, always.
 
+## Licensing
+
+MIT (see `LICENSE`). Chosen to match what this vendors — `nfl-mcp` is MIT, as is
+`nflreadpy` — so there is no compatibility question and no dual-license section
+to maintain. Copyleft was considered and dropped: a code license would not
+protect the definitions vocabulary, which is the only thing here plausibly worth
+protecting, and it would cost adoption for a tool whose whole distribution model
+is people running it themselves.
+
+Two things the repo license does *not* cover, both easy to get wrong:
+
+- **The data.** MIT covers this project's code. It grants nothing over nflverse
+  data or the NFL data underneath it. The README states this explicitly, because
+  a permissive license at the repo root otherwise reads as blessing everything in
+  scope.
+- **The definitions.** If the community definitions store ships, it is content,
+  not software — CC0 or CC BY fits it, and a code license would be a category
+  error. Decide this deliberately rather than letting it inherit MIT by default.
+
+Retain `nfl-mcp`'s copyright notice in the vendored ingest module.
+
 ## Open questions
 
 - **nflverse attribution (courtesy, not a blocker).** Since this ships as open
@@ -187,12 +208,18 @@ data to an injury exit. Return matched rows, always.
   their Discord describing what's being built and asking what attribution they'd
   like. Whatever comes back, honor it in the README.
 
-  Context if it ever becomes load-bearing: nflverse-data carries a Creative
-  Commons license over the compiled dataset, but the nflverse project states the
-  underlying NFL data belongs to its respective owners and is governed by their
-  terms of use — they do not claim to grant rights to it. That distinction would
-  matter for a hosted or monetized service. It does not much matter for this
-  scope, and would need revisiting if the scope changes.
+  The license half of this is **settled** (2026-09-07, read from
+  nflverse-data's `LICENSE.md`): Creative Commons **Attribution 4.0
+  International** — plain BY, *not* BY-SA. The open worry was ShareAlike, which
+  would have propagated obligations into anything built over the data. It does
+  not apply. Attribution is the only requirement, and the README carries it.
+
+  Unchanged by that finding: the CC license covers the *compiled dataset*. The
+  nflverse project states the underlying NFL data belongs to its respective
+  owners and is governed by their terms of use — they do not claim to grant
+  rights to it. That distinction would matter for a hosted or monetized service.
+  It does not much matter for this scope, and would need revisiting if the scope
+  changes.
 - Which "star player" definitions ship as suggested defaults.
 - Whether a shared/community definitions repo is worth building. This is
   probably the only real moat — the data is public and the code is forkable, but
