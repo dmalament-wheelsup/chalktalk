@@ -212,15 +212,28 @@ compatibility question. Apache-2.0 remains the sane upgrade if a patent grant or
 explicit contributor terms ever matter; the switch is cheap while the contributor
 list is short.
 
-## Still open
+## Corrected facts (2026-09-07, while planning implementation)
+
+- Participation data covers **2016–2025**, not 2016–2024: `offense_players` is
+  populated on 100% of plays in 2023, 2024 and 2025. The build-time coverage
+  registry is the authority from here on.
+- The `player_stats` release tag ends at 2024; nflreadpy ≥ 0.1.5 serves 2025
+  from the successor release. Column names differ between the two schemas.
+- nfl-mcp's ingest is lossless (Arrow → DuckDB direct); only its schema-drift
+  path is lossy for non-scalar types, and that is replaced.
+
+## Still open — all resolved in `docs/plan/00-index.md`
 
 - **nflverse attribution.** Courtesy, not a blocker — see CLAUDE.md. Downgraded
   from "biggest risk in the project" once hosting and monetization came off the
   table. The *license* half is closed: nflverse-data is CC BY 4.0, plain
   attribution, no ShareAlike (verified from `LICENSE.md`, 2026-09-07). What
   remains is asking nflverse how they'd like to be credited.
-- Which "star player" definitions ship as suggested defaults.
-- Whether the community definitions repo is worth building.
+- Which "star player" definitions ship as suggested defaults. → plan D2:
+  three named definitions (`star_by_snaps`, `star_by_contract`,
+  `star_by_draft`); `star_player` itself deliberately unresolved.
+- Whether the community definitions repo is worth building. → plan D3: not in
+  v1; the store format makes it a git repo of definition files later.
 
 ## First thing to build
 

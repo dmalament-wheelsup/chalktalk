@@ -8,6 +8,10 @@ Consult it before reopening a settled decision — several of the rejected paths
 (serverless, text-to-SQL, forking `nfl-mcp`, 1999 coverage) look attractive on
 first principles and were dropped for specific reasons.
 
+Implementation plan: [`docs/plan/00-index.md`](docs/plan/00-index.md) — phases,
+status ledger, and every resolved decision (D1–D23). Start there before writing
+code. Where this file and the plan disagree on a name, the plan is current.
+
 ## The bet
 
 The valuable unit is not the answer. It's the **definition** the answer rests on.
@@ -62,7 +66,7 @@ Flow:
 MCP client
     |
     v
-query(question)
+query(plan)
     |
     v
 unresolved term? ---- yes ----> propose / save ----> definitions store
@@ -74,6 +78,10 @@ compile to SQL --------------------------------> nfl.duckdb
                                                  (rebuilt weekly)
 ```
 
+`plan` is structured, not natural language: the calling model parses the
+user's question into entity, terms, attribute rules, grouping and metrics. The
+server never interprets English, so the gate is a lookup, not an NLP problem.
+
 On an unresolved term, `propose_definition` returns candidates **grounded in
 what is actually computable**, each tagged with its coverage window. The user
 picks or edits. The choice is saved as a named definition and reused silently
@@ -84,6 +92,18 @@ to design. This inverts the usual semantic-layer model (Cube, dbt), where a data
 team authors definitions up front.
 
 ## Architecture
+
+Four layers. A **feature layer** of six entity tables (`game`, `team_game`,
+`team_season`, `player_game`, `player_season`, `play`) exposing many documented
+attributes, each with a coverage window. **Five general signals** — `rule`,
+`percentile`, `rank`, `delta`, `composite` — the only ways a definition can be
+expressed; none knows what a "star" or an "injury" is. **Definitions** built
+from those signals, shipped and user-authored alike (`early_exit` is a
+composite of six smaller definitions, not code). A **gate, compiler and
+envelope** over structured plans. No concept ever gets its own code: if it
+cannot be expressed in the five signals, the feature layer is missing an
+attribute. The injury question above is one instance; the acceptance test is
+ten unrelated questions running on definitions alone (plan, phase 7).
 
 Single process. One DuckDB file on local disk. No object storage in the query
 path, no serverless, no cold starts. The dataset is ~1–1.5M plays; this is not a
@@ -131,7 +151,8 @@ first-class tool.
 Source: nflverse (github.com/nflverse/nflverse-data), via nflreadpy.
 
 **Season floor: 2013.** Not arbitrary. Snap counts come from Pro Football
-Reference and start ~2012; participation data is 2016–2024. Play-by-play reaches
+Reference and start ~2012; participation data is 2016–2025 (verified 2026-09-07;
+the build-time coverage registry is the runtime authority). Play-by-play reaches
 back to 1999, but the questions this project targets bottom out at snap-level
 data, so earlier seasons add cleaning burden without adding answerable
 questions.
@@ -200,6 +221,10 @@ Two things the repo license does *not* cover, both easy to get wrong:
 Retain `nfl-mcp`'s copyright notice in the vendored ingest module.
 
 ## Open questions
+
+All three are resolved in the implementation plan — `docs/plan/00-index.md`
+D1 (license and attribution), D2 (star-player defaults), D3 (community
+definitions). Kept here for the reasoning; do not treat them as open.
 
 - **nflverse attribution (courtesy, not a blocker).** Since this ships as open
   source that users run themselves, the project distributes code rather than
