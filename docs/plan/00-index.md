@@ -103,7 +103,7 @@ the same machinery answers ten unrelated questions.
 |-------|--------|------|--------|-------|
 | 1 | done | 2026-09-07 | e753384 | |
 | 2 | done | 2026-09-07 | 64d27b1 | 6 amendments; 719 MB artifact in ~60s |
-| 3 | done | 2026-09-07 | _pending_ | 4 amendments; 808 columns registered |
+| 3 | done | 2026-09-07 | 2eb48b7 | 4 amendments; 808 columns registered |
 | 4 | not started | | | Gate A |
 | 5 | not started | | | |
 | 6 | not started | | | |
