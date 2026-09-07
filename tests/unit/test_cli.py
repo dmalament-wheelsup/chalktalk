@@ -14,7 +14,7 @@ from chalktalk.config import Settings
 
 @pytest.mark.parametrize(
     ("command", "phase"),
-    [("coverage", 3), ("defs", 5), ("serve", 8), ("logs", 8)],
+    [("defs", 5), ("serve", 8), ("logs", 8)],
 )
 def test_stubs_exit_two(command: str, phase: int) -> None:
     result = CliRunner().invoke(main, [command])
@@ -72,3 +72,38 @@ def test_build_rejects_a_bad_season_range() -> None:
     result = CliRunner().invoke(main, ["build", "--seasons", "last-year"])
     assert result.exit_code != 0
     assert "season" in result.output
+
+
+def test_coverage_without_a_database(tmp_settings: Settings) -> None:
+    result = CliRunner().invoke(main, ["coverage"])
+    assert result.exit_code != 0
+    assert "no database" in result.output
+
+
+def test_coverage_reads_the_registry(tmp_settings: Settings) -> None:
+    from chalktalk import coverage as coverage_mod
+
+    artifact = paths.artifact_path(tmp_settings, date(2026, 9, 7))
+    conn = db.open_rw(artifact, tmp_settings)
+    conn.execute("CREATE TABLE facts (season INTEGER, epa DOUBLE)")
+    conn.execute("INSERT INTO facts VALUES (2023, 1.5)")
+    conn.execute(
+        "CREATE TABLE schedules (season INTEGER, week INTEGER, game_type VARCHAR, "
+        "home_team VARCHAR, away_team VARCHAR, home_score INTEGER)"
+    )
+    conn.execute("INSERT INTO schedules VALUES (2023, 1, 'REG', 'AAA', 'BBB', 20)")
+    coverage_mod.build(conn, tmp_settings)
+    conn.close()
+    db.write_current(tmp_settings, artifact)
+
+    result = CliRunner().invoke(main, ["coverage", "facts", "--column", "epa"])
+    assert result.exit_code == 0, result.output
+    assert "epa" in result.output
+
+    seasons = CliRunner().invoke(main, ["coverage", "--seasons"])
+    assert seasons.exit_code == 0
+    assert "2023" in seasons.output
+
+    missing = CliRunner().invoke(main, ["coverage", "nonesuch"])
+    assert missing.exit_code != 0
+    assert "nothing in the registry" in missing.output

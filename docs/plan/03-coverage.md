@@ -18,6 +18,7 @@ the same.)
 src/chalktalk/coverage.py
 tests/unit/test_coverage_math.py        synthetic tables
 tests/data/test_coverage_registry.py
+tests/unit/test_cli.py                  coverage subcommand
 CLI: chalktalk coverage [TABLE] [--column COL]
 ```
 
@@ -40,7 +41,9 @@ season_status(season INTEGER, reg_weeks INTEGER, games_per_team INTEGER, playoff
 ## Algorithm
 
 For every table that has a `season` column (discover with
-`information_schema.columns`), one scan:
+`information_schema.columns`), excluding the registry tables themselves
+(`coverage_*`, `season_status`, `ingest_log`, `build_info`, `type_conflicts` —
+they carry a `season` but describe the build), one scan:
 `SELECT season, count(*), count(c1), count(c2), … GROUP BY season` — then
 reduce in Python per column: `first_season` = min season with `count(c) > 0`,
 `last_season` = max, `seasons_with_data` = number of such seasons, `has_gaps` =
@@ -55,7 +58,11 @@ in REG`; `playoff_teams = count(distinct team) in postseason games`;
 `reg_games_scheduled = count(game_type='REG')`,
 `reg_games_final = count(… AND home_score IS NOT NULL)`, `post_games_final`
 likewise for postseason; `complete = final = scheduled AND scheduled > 0`;
-`in_progress = final > 0 AND NOT complete`; `queryable = season >= floor`.
+`in_progress = final > 0 AND NOT complete`; `queryable = season >= floor AND
+final > 0` (amended 2026-09-07 — `schedules` already carries next season, 272
+games scheduled and none played; `season >= floor` alone would mark it
+queryable). `complete`/`in_progress`/`queryable` count **every** game type, not
+just REG; the `reg_*`/`post_*` columns are stored detail.
 
 ## Interfaces
 
@@ -84,17 +91,21 @@ makes the result `None` — the gate reports it as the limiting ref.
 
 ```bash
 uv run chalktalk build --skip-features        # or reuse phase 2 artifact: chalktalk coverage --rebuild
-uv run chalktalk coverage snap_counts                          # offense_snaps 2012..2025
+uv run chalktalk coverage snap_counts                          # offense_snaps 2013..2025 (amended: no 2012 file)
 uv run chalktalk coverage participation --column offense_players   # 2016..2025
-uv run chalktalk coverage --seasons                            # season_status table; 2025 complete=true
+uv run chalktalk coverage --seasons                            # season_status; 2025 complete, 2026 scheduled/not queryable
 uv run pytest -m data tests/data/test_coverage_registry.py
 ```
 
-Data test asserts: `snap_counts.offense_snaps` first 2012; `participation.
-offense_players` first ≥ 2016; `pbp.epa` first 2013; no seasonal table has
-`first_season < floor - 1`; `season_status` has every season from floor to
-current with `queryable = true`; `reg_weeks` is 17 and `games_per_team` 16 for
-2013–2020, 18 and 17 from 2021; `playoff_teams` is 12 through 2019 and 14 from 2020.
+Data test asserts: `snap_counts.offense_snaps` first **2013** (amended — the
+2012 release is empty, so there is no prior-season snap baseline for 2013);
+`participation.offense_players` first ≥ 2016; `pbp.epa` first 2013; no seasonal
+table has `first_season < floor - 1`; every season from the floor to the latest
+*played* season is queryable and contiguous, and a scheduled-but-unplayed season
+is present with `queryable = false`; `reg_weeks` is 17 and `games_per_team` 16
+for 2013–2020, 18 and 17 from 2021; `playoff_teams` is 12 through 2019 and 14
+from 2020; 2022 has 271 regular-season games, not 272 (the cancelled
+Bills–Bengals game — proof the numbers are read, not written).
 
 ## Pitfalls
 
@@ -103,6 +114,11 @@ current with `queryable = true`; `reg_weeks` is 17 and `games_per_team` 16 for
 - Build order is raw → features → coverage. Phase 4 must call `coverage.build`
   last; do not compute coverage before derived tables exist.
 - `Coverage.queryable_seasons()` starts at `floor` even though 2012 rows exist.
+- A build with `--only` and no `schedules` leaves `season_status` empty; coverage
+  must not crash on it (amended 2026-09-07).
+- `playoff_teams` counts distinct *teams*, so it needs the home/away union;
+  `post_games_final` counts *games* and must not use that union, or every
+  postseason game is counted twice.
 
 ## Done when
 

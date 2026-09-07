@@ -103,7 +103,7 @@ the same machinery answers ten unrelated questions.
 |-------|--------|------|--------|-------|
 | 1 | done | 2026-09-07 | e753384 | |
 | 2 | done | 2026-09-07 | 64d27b1 | 6 amendments; 719 MB artifact in ~60s |
-| 3 | not started | | | |
+| 3 | done | 2026-09-07 | _pending_ | 4 amendments; 808 columns registered |
 | 4 | not started | | | Gate A |
 | 5 | not started | | | |
 | 6 | not started | | | |
@@ -466,6 +466,40 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   (INTEGER, DOUBLE in three seasons from 2020). Phase 4 must cast
   `jersey_number`/`draft_number` rather than assume a number. The lossless test
   fails on any coercion to text that is *not* in `type_conflicts`.
+
+- **2026-09-07 · phase 3 · `queryable = season >= floor` is not enough — `schedules`
+  already carries next season.** The single `schedules` file contains 2026: 272
+  regular-season games scheduled, none played, no postseason rows. Under the
+  plan's rule 2026 would be queryable with no data behind it at all. Corrected
+  to `queryable = season >= floor AND at least one game has a final score`,
+  which is still derived entirely from the data (D24). The phase 3 acceptance
+  line "`season_status` has every season from floor to current with
+  `queryable = true`" is amended accordingly: every season from the floor to the
+  *latest played* season is queryable, and a scheduled-but-unplayed season is
+  present with `complete = false, in_progress = false, queryable = false`.
+
+- **2026-09-07 · phase 3 · `complete` spans the whole season, not just REG.**
+  The plan's `complete = final = scheduled AND scheduled > 0` does not say which
+  games. It counts every game type: a season is complete when every scheduled
+  game, postseason included, has a final score. `reg_games_scheduled`,
+  `reg_games_final` and `post_games_final` remain as stored detail.
+
+- **2026-09-07 · phase 3 · registry tables are excluded from coverage.**
+  `ingest_log`, `type_conflicts` and `build_info` have a `season` column but
+  describe the build, not the football. `coverage.REGISTRY_TABLES` is the list;
+  keep it current when a registry table is added. Coverage of a partial build
+  that has no `schedules` (`chalktalk build --only pbp`) leaves `season_status`
+  empty rather than guessing, and `Coverage.queryable_seasons()` is then empty,
+  so nothing is queryable.
+
+- **2026-09-07 · phase 3 · the registry immediately earns its keep.** Findings
+  from the first real run, none of which were known when the plan was written:
+  `participation.ngs_air_yards` stops at **2022** (a definition using it silently
+  answers nothing for 2023–2025); four `pbp` columns and `draft_picks.car_av`
+  are present in the schema but never populated, so `Coverage.intersect` returns
+  None for them and the gate must refuse rather than return zero; and several
+  `pbp` tackle-assist columns have real gaps (7 non-null rows across 5
+  scattered seasons). This is why coverage is generated, never hand-maintained.
 
 - **2026-09-07 · phase 2 · the full build takes about a minute, not 10–25.**
   13 seasons of everything including `pbp` is ~59s warm and ~82s cold on a

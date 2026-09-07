@@ -27,7 +27,6 @@ from chalktalk.paths import (
 
 _STUB_PHASE = {
     "serve": 8,
-    "coverage": 3,
     "defs": 5,
     "logs": 8,
 }
@@ -36,6 +35,10 @@ _STUB_PHASE = {
 def _not_implemented(command: str) -> None:
     print(f"not implemented (phase {_STUB_PHASE[command]})", file=sys.stderr)
     raise SystemExit(2)
+
+
+def _n(value: int | None) -> str:
+    return "-" if value is None else str(value)
 
 
 def _dep_version(dist: str) -> str:
@@ -114,9 +117,116 @@ def serve() -> None:
 
 
 @main.command()
-def coverage() -> None:
-    """Show the coverage registry."""
-    _not_implemented("coverage")
+@click.argument("table", required=False)
+@click.option("--column", "column", metavar="COL", help="Show one column of TABLE.")
+@click.option("--seasons", "show_seasons", is_flag=True, help="Show season_status instead.")
+@click.option(
+    "--rebuild",
+    is_flag=True,
+    help="Recompute the registry in the published artifact. Not while a server is running.",
+)
+def coverage(table: str | None, column: str | None, show_seasons: bool, rebuild: bool) -> None:
+    """Show the coverage registry: what is computable, and for which seasons."""
+    from chalktalk import coverage as coverage_mod
+    from chalktalk.db import NoDatabase, open_ro, open_rw, read_current
+
+    s = Settings.load()
+    artifact = read_current(s)
+    if artifact is None:
+        raise click.ClickException("no database; run `chalktalk build`") from NoDatabase()
+
+    if rebuild:
+        conn = open_rw(artifact, s)
+        try:
+            coverage_mod.build(conn, s)
+            conn.execute("CHECKPOINT")
+        finally:
+            conn.close()
+        print(f"coverage rebuilt in {artifact.name}")
+        return
+
+    conn = open_ro(artifact, s)
+    try:
+        if show_seasons:
+            rows = conn.execute(
+                "SELECT season, reg_weeks, games_per_team, playoff_teams, reg_games_scheduled, "
+                "reg_games_final, post_games_final, complete, in_progress, queryable "
+                "FROM season_status ORDER BY season"
+            ).fetchall()
+            if not rows:
+                raise click.ClickException("season_status is empty; rebuild with schedules")
+            print(
+                f"{'season':>6}  {'weeks':>5} {'g/team':>6} {'playoff':>7}  "
+                f"{'reg':>9}  {'post':>5}  status"
+            )
+            for (
+                season,
+                reg_weeks,
+                per_team,
+                playoff,
+                sched,
+                final,
+                post,
+                complete,
+                in_progress,
+                queryable,
+            ) in rows:
+                state = "complete" if complete else "in progress" if in_progress else "scheduled"
+                if not queryable:
+                    state += " (not queryable)"
+                print(
+                    f"{season:>6}  {_n(reg_weeks):>5} {_n(per_team):>6} {_n(playoff):>7}  "
+                    f"{final or 0:>4}/{sched or 0:<4}  {_n(post):>5}  {state}"
+                )
+            return
+
+        query = (
+            "SELECT table_name, column_name, duck_type, seasonal, first_season, last_season, "
+            "seasons_with_data, has_gaps, non_null_rows, total_rows FROM coverage_columns"
+        )
+        params: list[object] = []
+        where = []
+        if table:
+            where.append("table_name = ?")
+            params.append(table)
+        if column:
+            where.append("column_name = ?")
+            params.append(column)
+        if where:
+            query += " WHERE " + " AND ".join(where)
+        query += " ORDER BY table_name, column_name"
+
+        rows = conn.execute(query, params).fetchall()
+        if not rows:
+            raise click.ClickException(
+                f"nothing in the registry for {table or 'any table'}"
+                + (f" column {column}" if column else "")
+            )
+
+        width = max(len(f"{r[0]}.{r[1]}") for r in rows)
+        for (
+            table_name,
+            column_name,
+            duck_type,
+            seasonal,
+            first,
+            last,
+            with_data,
+            has_gaps,
+            non_null,
+            total,
+        ) in rows:
+            ref = f"{table_name}.{column_name}"
+            if not seasonal:
+                span = "unbounded"
+            elif first is None:
+                span = "never populated"
+            else:
+                span = f"{first}..{last}" + (f" ({with_data} seasons, gaps)" if has_gaps else "")
+            filled = f"{non_null:,}/{total:,}" if total else "empty"
+            print(f"{ref:<{width}}  {duck_type:<12} {span:<28} {filled}")
+    finally:
+        conn.close()
 
 
 @main.command()
