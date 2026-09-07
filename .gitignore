@@ -3,7 +3,8 @@
 *.duckdb.wal
 *.duckdb.tmp/
 *.duckdb.building
-data/
+# Repo root only — `tests/data/` is the data-tier test suite, not an artifact.
+/data/
 
 # nflverse downloads / ingest cache
 *.parquet

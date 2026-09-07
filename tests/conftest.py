@@ -25,10 +25,22 @@ _ENV_VARS = (
 
 
 @pytest.fixture(autouse=True)
-def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    """No test inherits chalktalk configuration from the developer's shell."""
+def clean_env(
+    request: pytest.FixtureRequest,
+    tmp_path_factory: pytest.TempPathFactory,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Isolate every unit test from the developer's shell and real home.
+
+    CHALKTALK_HOME is pointed at a throwaway directory rather than merely
+    unset, so a unit test that reaches for the real ``~/.chalktalk`` — or, worse,
+    runs a real build into it — finds an empty one instead. Tests in the ``data``
+    tier are exempt: the whole point of that tier is the real build.
+    """
     for name in _ENV_VARS:
         monkeypatch.delenv(name, raising=False)
+    if request.node.get_closest_marker("data") is None:
+        monkeypatch.setenv("CHALKTALK_HOME", str(tmp_path_factory.mktemp("home")))
 
 
 @pytest.fixture

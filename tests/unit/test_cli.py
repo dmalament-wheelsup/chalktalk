@@ -14,7 +14,7 @@ from chalktalk.config import Settings
 
 @pytest.mark.parametrize(
     ("command", "phase"),
-    [("build", 2), ("coverage", 3), ("defs", 5), ("serve", 8), ("logs", 8)],
+    [("coverage", 3), ("defs", 5), ("serve", 8), ("logs", 8)],
 )
 def test_stubs_exit_two(command: str, phase: int) -> None:
     result = CliRunner().invoke(main, [command])
@@ -44,3 +44,31 @@ def test_doctor_reports_the_current_artifact(tmp_settings: Settings) -> None:
     assert result.exit_code == 0
     assert "no database" not in result.output
     assert artifact.name in result.output
+
+
+def test_build_plan_makes_no_network_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    from chalktalk.ingest import loaders
+
+    monkeypatch.setattr(loaders, "current_season", lambda: 2025)
+    monkeypatch.setattr(
+        loaders, "load", lambda d, season: pytest.fail("--plan must not load anything")
+    )
+    result = CliRunner().invoke(main, ["build", "--plan"])
+    assert result.exit_code == 0
+    assert "pbp" in result.output
+    assert "season floor 2013" in result.output
+
+
+def test_build_rejects_an_unknown_dataset(monkeypatch: pytest.MonkeyPatch) -> None:
+    from chalktalk.ingest import loaders
+
+    monkeypatch.setattr(loaders, "current_season", lambda: 2025)
+    result = CliRunner().invoke(main, ["build", "--plan", "--only", "nonesuch"])
+    assert result.exit_code != 0
+    assert "nonesuch" in result.output
+
+
+def test_build_rejects_a_bad_season_range() -> None:
+    result = CliRunner().invoke(main, ["build", "--seasons", "last-year"])
+    assert result.exit_code != 0
+    assert "season" in result.output

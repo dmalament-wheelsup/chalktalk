@@ -102,7 +102,7 @@ the same machinery answers ten unrelated questions.
 | Phase | Status | Date | Commit | Notes |
 |-------|--------|------|--------|-------|
 | 1 | done | 2026-09-07 | e753384 | |
-| 2 | not started | | | |
+| 2 | done | 2026-09-07 | _pending_ | 6 amendments; 719 MB artifact in ~60s |
 | 3 | not started | | | |
 | 4 | not started | | | Gate A |
 | 5 | not started | | | |
@@ -361,7 +361,7 @@ upstream schema changed across seasons and is a rabbit hole (phase 10 backlog).
 |---------|---------|-------|
 | `pbp` | 1999–2025 | 2023: 49,665 plays × 372 cols |
 | `pbp_participation` | 2016–2025 | no `season` column; derive from `nflverse_game_id` |
-| `snap_counts` | 2012–2025 | keyed by `pfr_player_id`; ~26.5k rows/season |
+| `snap_counts` | **2013**–2025 | keyed by `pfr_player_id`; ~26.5k rows/season. The loader accepts 2012 and returns 0 rows — the release starts at 2013 (amended 2026-09-07) |
 | `injuries` | 2009–2026 | weeks 1–19+; 2026 file already exists |
 | `weekly_rosters` | 2002–2026 | loader `load_rosters_weekly` |
 | `depth_charts` | 2001–2026 | ingested, unused in v1 (D23) |
@@ -375,7 +375,8 @@ Loader signatures (nflreadpy 0.1.5): seasonal loaders take
 `seasons: int | list[int] | bool | None` (`True` = all). `load_contracts()`,
 `load_players()` take nothing. `load_player_stats(seasons, summary_level='week')`.
 `nflreadpy.get_current_season()` returned 2025 on 2026-09-07.
-`nflreadpy.update_config(cache_mode=…, cache_dir=…, cache_duration=…)` exists;
+`nflreadpy.config.update_config(cache_mode=…, cache_dir=…, cache_duration=…)` exists
+(on `nflreadpy.config`, **not** the package root);
 default cache mode is in-memory.
 
 Value sets: `rosters_weekly.status` ∈ {ACT, DEV, RES, INA, CUT, RET, EXE, …};
@@ -404,6 +405,71 @@ Week numbering by era (verified on `schedules`, `snap_counts`, `injuries`,
 ## Amendments
 
 _(Sessions append here: date · phase · what was wrong · what changed.)_
+
+- **2026-09-07 · phase 2 · `update_config` is not on the package root.** The plan
+  said `nflreadpy.update_config(...)`; it lives at
+  `nflreadpy.config.update_config`. `CacheMode.FILESYSTEM` is the filesystem
+  member. Corrected here and in 02-ingest.md.
+
+- **2026-09-07 · phase 2 · `snap_counts` starts at 2013, not 2012.** The loader's
+  own guard says 2012–2025, but `load_snap_counts([2012])` returns 0 rows and
+  `load_snap_counts(True)` has `min(season) = 2013`. **Consequence for D20:**
+  there is no prior-season snap baseline for the 2013 season, so a
+  `prior_season` snap definition (`star_by_snaps`) is uncomputable for 2013 and
+  first has data in 2014. `rosters_weekly` and `player_stats` do have 2012 and
+  are unaffected. Phase 3's coverage registry is the runtime authority and will
+  report this from the data; phase 4 must not assume a 2013 snap baseline
+  exists. A data-tier test pins `min(snap_counts.season) = 2013`.
+
+- **2026-09-07 · phase 2 · `player_stats` column names are identical for 2013
+  and 2025 (D5 confirmed).** 150 columns both seasons. The names are the
+  *successor* schema — phase 4 must use these, not the pre-2025 ones:
+  `player_id, player_name, player_display_name, position, position_group,
+  headshot_url, season, week, season_type, game_id, team, opponent_team` then
+  `completions, attempts, passing_yards, passing_tds, passing_interceptions,
+  sacks_suffered, sack_yards_lost, sack_fumbles, sack_fumbles_lost,
+  passing_air_yards, passing_yards_after_catch, passing_first_downs,
+  passing_epa, passing_cpoe, passing_2pt_conversions, pacr, passing_10,
+  passing_16, passing_20, passing_40, carries, rushing_yards, rushing_tds,
+  rushing_fumbles, rushing_fumbles_lost, rushing_first_downs, rushing_epa,
+  rushing_2pt_conversions, rushing_10, rushing_12, rushing_20, rushing_40,
+  receptions, targets, receiving_yards, receiving_tds, receiving_fumbles,
+  receiving_fumbles_lost, receiving_air_yards, receiving_yards_after_catch,
+  receiving_first_downs, receiving_epa, receiving_2pt_conversions,
+  receiving_10, receiving_16, receiving_20, receiving_40, racr, target_share,
+  air_yards_share, wopr, special_teams_tds`, the `def_*` block
+  (`def_tackles_solo … def_2pt_made`), the fumble/penalty block, the kicking
+  block (`fg_*`, `pat_*`, `gwfg_*`), the punting block (`pt_*`), and
+  `fantasy_points, fantasy_points_ppr`. Note `team`/`opponent_team`, **not**
+  `recent_team`; `carries`, **not** `rushing_attempts`; `passing_interceptions`
+  and `sacks_suffered` on the passing side.
+
+- **2026-09-07 · phase 2 · `depth_charts` lost `season` and `week` upstream in
+  2025.** 2013–2024 is 15 columns keyed by season/week; 2025 is a 554,215-row,
+  12-column ESPN-shaped table (`dt, team, player_name, espn_id, gsis_id,
+  pos_grp_id, pos_grp, pos_id, pos_name, pos_abb, pos_slot, pos_rank`) with no
+  season at all. Rows with a NULL season are invisible to the per-season
+  `DELETE`, so a rebuild would have duplicated them: the build now stamps the
+  requested season onto any `by_season` frame that arrives without one, and a
+  data-tier test asserts no `by_season` table has a NULL season. This reinforces
+  D23 — nothing in v1 should depend on `depth_charts`.
+
+- **2026-09-07 · phase 2 · upstream contradicts itself on four column types;
+  they are now recorded in the artifact.** `INSERT ... BY NAME` casts silently,
+  so the column type was decided by whichever season happened to be ingested
+  first. A new `type_conflicts` table (`dataset_id, table_name, season,
+  column_name, stored_type, incoming_type`) records every disagreement, and the
+  build warns once per column. As of this build:
+  `rosters_weekly.jersey_number` and `rosters_weekly.draft_number` (VARCHAR
+  through 2015, INTEGER from 2016 — stored VARCHAR, the union type),
+  `rosters_weekly.height` (DOUBLE, INTEGER in 2025), and `pbp.goal_to_go`
+  (INTEGER, DOUBLE in three seasons from 2020). Phase 4 must cast
+  `jersey_number`/`draft_number` rather than assume a number. The lossless test
+  fails on any coercion to text that is *not* in `type_conflicts`.
+
+- **2026-09-07 · phase 2 · the full build takes about a minute, not 10–25.**
+  13 seasons of everything including `pbp` is ~59s warm and ~82s cold on a
+  laptop; the artifact is 719 MB. 02-ingest.md's acceptance note is corrected.
 
 ---
 

@@ -26,7 +26,6 @@ from chalktalk.paths import (
 )
 
 _STUB_PHASE = {
-    "build": 2,
     "serve": 8,
     "coverage": 3,
     "defs": 5,
@@ -55,9 +54,57 @@ def main(log_level: str) -> None:
 
 
 @main.command()
-def build() -> None:
+@click.option(
+    "--seasons",
+    "seasons_text",
+    metavar="YYYY[-YYYY]",
+    help="Restrict to these seasons. Default: the season floor through the current season.",
+)
+@click.option("--only", "only_text", metavar="a,b", help="Restrict to these dataset ids.")
+@click.option("--skip-features", is_flag=True, help="Skip the feature layer (phase 4).")
+@click.option("--no-publish", is_flag=True, help="Build the artifact but leave CURRENT alone.")
+@click.option("--keep", default=3, show_default=True, help="Artifacts to retain after publishing.")
+@click.option("--plan", "show_plan", is_flag=True, help="Print what would be loaded and exit.")
+def build(
+    seasons_text: str | None,
+    only_text: str | None,
+    skip_features: bool,
+    no_publish: bool,
+    keep: int,
+    show_plan: bool,
+) -> None:
     """Ingest nflverse and write a new database artifact."""
-    _not_implemented("build")
+    from chalktalk.ingest import build as build_mod
+
+    s = Settings.load()
+    try:
+        seasons = build_mod.parse_season_range(seasons_text) if seasons_text else None
+        only = {p.strip() for p in only_text.split(",") if p.strip()} if only_text else None
+
+        if show_plan:
+            for line in build_mod.plan_lines(s, seasons=seasons, only=only):
+                print(line)
+            return
+
+        result = build_mod.build(
+            s,
+            seasons=seasons,
+            only=only,
+            skip_features=skip_features,
+            publish=not no_publish,
+            keep=keep,
+        )
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    print()
+    for table, rows in sorted(result.tables.items()):
+        print(f"  {table:<16} {rows:>10,} rows")
+    print()
+    for warning in result.warnings:
+        print(f"  warning: {warning}")
+    published = "published as CURRENT" if not no_publish else "not published (--no-publish)"
+    print(f"\n{result.artifact} — {published} in {result.duration_s:.1f}s")
 
 
 @main.command()

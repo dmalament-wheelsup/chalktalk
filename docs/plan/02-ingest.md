@@ -22,6 +22,7 @@ src/chalktalk/ingest/build.py        orchestration, ingest_log, build_info, atom
 src/chalktalk/cli.py                 `build` wired
 tests/unit/test_normalize.py
 tests/unit/test_registry.py
+tests/unit/test_build.py             storage, idempotency, naming, retention (loader stubbed)
 tests/data/test_ingest_lossless.py   (data tier)
 docs/plan/00-index.md                Amendment: actual player_stats column names observed
 ```
@@ -49,7 +50,7 @@ types (D7).
 | `contracts` | `load_contracts` | `contracts` | — | replace | two `List(Struct)` columns; keep |
 | `draft_picks` | `load_draft_picks` (`True`) | `draft_picks` | — | replace | |
 | `schedules` | `load_schedules` (`True`) | `schedules` | filter `season >= floor` | replace | one file for all seasons |
-| `snap_counts` | `load_snap_counts` | `snap_counts` | `prior..current` | by_season | `needs_prior`; snaps `Float64` → `INTEGER` |
+| `snap_counts` | `load_snap_counts` | `snap_counts` | `prior..current` | by_season | `needs_prior`; snaps `Float64` → `INTEGER`. The 2012 file is empty — no prior-season baseline for 2013 (amended) |
 | `rosters_weekly` | `load_rosters_weekly` | `rosters_weekly` | `prior..current` | by_season | `needs_prior` |
 | `player_stats` | `load_player_stats(summary_level="week")` | `player_stats` | `prior..current` | by_season | `needs_prior`; record columns (D5) |
 | `injuries` | `load_injuries` | `injuries` | `floor..current` | by_season | whitespace → NULL |
@@ -88,6 +89,12 @@ Applied to every DataFrame in this order; no column is ever dropped:
      `week = split(...)[1]` as `Int32`.
    - `snap_counts`: `offense_snaps`, `defense_snaps`, `st_snaps` → `Int32`.
 
+   Then, in `build.py` rather than `normalize.py` because it needs the season
+   that was requested: any `by_season` frame arriving without a `season` column
+   is stamped with it (added 2026-09-07 — `depth_charts` 2025 has no season, and
+   a NULL season is invisible to the per-season `DELETE`, so a rebuild would
+   duplicate the rows).
+
 ## Build (`build.py`)
 
 ```python
@@ -105,13 +112,19 @@ def build(settings: Settings, *, seasons: range | None = None, only: set[str] | 
 Steps, in order:
 
 1. `ensure_layout`. Configure nflreadpy for on-disk caching:
-   `nflreadpy.update_config(cache_mode=<filesystem member of CacheMode>,
-   cache_dir=cache_dir(settings), cache_duration=7*86400)`. Look up the
-   member name in `nflreadpy.config.CacheMode` and hard-code it.
+   `nflreadpy.config.update_config(cache_mode=CacheMode.FILESYSTEM,
+   cache_dir=cache_dir(settings), cache_duration=7*86400)`. Note it is on
+   `nflreadpy.config`, not the package root (amended 2026-09-07).
 2. Target: `data/nfl-YYYYMMDD.duckdb.building`. If a stale `.building` exists,
    delete it. `open_rw`.
 3. `CREATE TABLE ingest_log(dataset_id VARCHAR, table_name VARCHAR, season INTEGER,
    row_count BIGINT, loaded_at TIMESTAMP, loader_fn VARCHAR, nflreadpy_version VARCHAR)`.
+3b. `CREATE TABLE type_conflicts(dataset_id VARCHAR, table_name VARCHAR, season
+   INTEGER, column_name VARCHAR, stored_type VARCHAR, incoming_type VARCHAR)`
+   (added 2026-09-07). Upstream is not self-consistent across seasons and
+   `INSERT ... BY NAME` casts without complaint, so every disagreement between
+   the incoming and stored type is recorded here and warned once per column.
+
 4. For each `DatasetDef` in order, for each season (or once for `replace`):
    load → normalize → `conn.register("_df", df.to_arrow())` →
    if table absent: `CREATE TABLE t AS SELECT * FROM _df` ·
@@ -154,7 +167,7 @@ class NotPublished(Exception)                                   # wraps upstream
 ```bash
 uv run chalktalk build --plan
 uv run chalktalk build --seasons 2023-2023 --only schedules,players,snap_counts,injuries --no-publish
-uv run chalktalk build                       # full: expect 10–25 min on first run, minutes after (cache)
+uv run chalktalk build                       # full: ~80s cold, ~60s warm; 719 MB artifact (amended 2026-09-07)
 uv run chalktalk doctor                      # CURRENT → today's artifact
 uv run python -c "import duckdb,os;c=duckdb.connect(open(os.path.expanduser('~/.chalktalk/data/CURRENT')).read().strip(),read_only=True);print(c.sql('select table_name,count(*) n,min(season),max(season) from ingest_log group by 1 order by 1'))"
 uv run pytest -m data tests/data/test_ingest_lossless.py
@@ -165,9 +178,16 @@ Sanity numbers (2023, REG+POST, verified): `pbp` 49,665 · `snap_counts`
 `player_stats` 2025: 19,422.
 
 `test_ingest_lossless.py`: for each seasonal dataset and one season, reload
-via nflreadpy, normalize, and assert: identical column set, identical row
+via nflreadpy, normalize, and assert: no column is dropped, identical row
 count, and no column whose polars dtype is numeric/boolean/date is stored as
 `VARCHAR`.
+
+Amended 2026-09-07: "identical column set" is wrong for a table built from
+several seasons — schema drift means the stored table is the *union*, so the
+assertion is that every column upstream sent is present. And the VARCHAR rule
+has one legitimate exception: a column upstream itself sends both ways, where
+VARCHAR is the union type. Those are recorded in `type_conflicts` at build
+time; a coercion to text that is *not* recorded there fails the test.
 
 **Amend `00-index.md`** with the exact `player_stats` column names the loader
 returned for 2013 and 2025 (they must match each other; if they don't, record

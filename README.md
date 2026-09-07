@@ -3,9 +3,9 @@
 An MCP server for composite NFL questions where the hard part is agreeing on what
 the words mean.
 
-> **Status: in progress.** Phase 1 (scaffold) is done; the ingest, feature layer
-> and server are not. See [`docs/plan/00-index.md`](docs/plan/00-index.md) for the
-> phase ledger.
+> **Status: in progress.** Ingest works — `chalktalk build` pulls nflverse into a
+> local DuckDB file. The feature layer, definitions and the server are not built
+> yet. See [`docs/plan/00-index.md`](docs/plan/00-index.md) for the phase ledger.
 
 ## The problem
 
@@ -70,6 +70,20 @@ uv run pytest
 
 The default run is the unit tier and needs no data. Tests that require a built
 database are marked `data` and are opt-in: `uv run pytest -m data`.
+
+## Building the database
+
+```bash
+uv run chalktalk build
+```
+
+This downloads every nflverse dataset from the 2013 season on and writes one
+immutable `~/.chalktalk/data/nfl-YYYYMMDD.duckdb`, then points `CURRENT` at it.
+Roughly a minute and 720 MB. `--plan` shows what would be downloaded without
+downloading anything; `--seasons` and `--only` narrow it.
+
+The file is disposable — rebuild it weekly and nothing is lost, because
+definitions live outside it under `~/.chalktalk/definitions/`.
 
 ## Design
 
