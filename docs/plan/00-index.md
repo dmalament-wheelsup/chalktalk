@@ -104,7 +104,7 @@ the same machinery answers ten unrelated questions.
 | 1 | done | 2026-09-07 | e753384 | |
 | 2 | done | 2026-09-07 | 64d27b1 | 6 amendments; 719 MB artifact in ~60s |
 | 3 | done | 2026-09-07 | 2eb48b7 | 4 amendments; 808 columns registered |
-| 4 | not started | | | Gate A |
+| 4 | in progress | 2026-09-07 | | Gate A; staged 4a–4d (see 04-features.md) |
 | 5 | not started | | | |
 | 6 | not started | | | |
 | 7 | not started | | | Gate B |
@@ -466,6 +466,16 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   (INTEGER, DOUBLE in three seasons from 2020). Phase 4 must cast
   `jersey_number`/`draft_number` rather than assume a number. The lossless test
   fails on any coercion to text that is *not* in `type_conflicts`.
+
+- **2026-09-07 · phase 4 · worked in four stages, not renumbered.** 04-features.md
+  now carries a **Stages** section: 4a foundations · 4b team side · 4c player
+  season · 4d player game and Gate A, each its own commit. The phase keeps one
+  ledger row, `in progress` until 4d is green. Measured first: `player_play`
+  unnests to ~9.9M rows, so it is not a volume risk and needs no stage of its
+  own; the risk is `player_game` and Gate A, and the bulk of the work is the
+  ~250 catalog entries. Two ordering constraints are recorded there: the catalog
+  completeness test and `tests/fixtures/exits.yaml` both land in 4a, the latter
+  so its expected answers cannot be back-fitted to the code's output.
 
 - **2026-09-07 · phase 3 · `queryable = season >= floor` is not enough — `schedules`
   already carries next season.** The single `schedules` file contains 2026: 272

@@ -34,6 +34,46 @@ tests/data/test_features.py            counts, crosswalk rate, spot checks
 tests/data/test_gate_a.py              fixture attribute checks
 ```
 
+## Stages
+
+Added 2026-09-07. This is the largest phase in the plan and the only one whose
+acceptance is a gate. It is worked in four stages, each ending with the unit
+tier green and its own commit (`phase-4a:` … `phase-4d:`). The phase is **not**
+renumbered — phases 5, 6 and 7 reference "phase 4", and `ENTITIES`, `LIFTS` and
+the catalog are one contract. The ledger row for phase 4 stays `in progress`
+until 4d is green.
+
+Measured before splitting, so the staging rests on numbers rather than worry:
+`player_play` unnests to ~9.9M rows (4.95M offence + 4.95M defence slots over
+450k plays) — no volume problem, so it needs no stage of its own. The risk is
+concentrated in `player_game` and Gate A; the bulk of the *work* is the ~250
+hand-written catalog entries, which is broad but cannot fail interestingly.
+
+- [ ] **4a — foundations.** `tests/fixtures/exits.yaml`, `entities.py`,
+      `catalog.py` machinery, `xwalk.py`. Green: crosswalk ≥ 99%, namespace and
+      lift consistency, catalog well-formedness and completeness.
+- [ ] **4b — the team side.** `game_ctx`, `team_game`, `team_season`. Three of
+      the six entities, no dependency on participation or the crosswalk. Settles
+      the `spread_line` sign question. Green: per-season counts, era-neutral
+      attributes, spot checks.
+- [ ] **4c — the player season.** `player_play`, `player_season`.
+      `player_season` reads only raw tables, so it does not need `player_game`.
+- [ ] **4d — the player game and the gate.** `player_game`, then Gate A.
+
+Two things that matter more than the split itself:
+
+1. **The catalog completeness test lands in 4a, not at the end.** "Every column
+   of every derived entity table has an `ATTRIBUTES` entry" is what forces each
+   table to arrive documented. Written last it becomes a 250-entry retrofit;
+   written first, no table can slip past it. It is vacuous at 4a and must not be
+   allowed to stay that way.
+2. **`exits.yaml` is written in 4a, before any player table exists.** It is a
+   verbatim copy of the block in [09-testing.md](09-testing.md), whose expected
+   answers come from football knowledge. Writing it after `player_game` exists
+   would let it be back-fitted to whatever the code happens to produce — the
+   exact failure `CLAUDE.md` warns about. Doing it first makes that structural
+   rather than a matter of discipline.
+
 Each feature module exposes `build(conn, settings) -> None` and runs
 `CREATE OR REPLACE TABLE <name> AS <sql>`. SQL lives as readable strings, one
 CTE per concept, parameterized only by settings constants.
