@@ -106,7 +106,7 @@ the same machinery answers ten unrelated questions.
 | 3 | done | 2026-09-07 | 2eb48b7 | 4 amendments; 808 columns registered |
 | 4 | done | 2026-09-08 | d2f1725 | Gate A green; 241 attributes; staged 4a–4d |
 | 5 | done | 2026-09-08 | b66cf4b | 5 signals, store, propose; mini DB landed |
-| 6 | done | 2026-09-08 | _pending_ | gate + compiler + envelope; 10/10 plans compile |
+| 6 | done | 2026-09-08 | 011a504 | gate + compiler + envelope; 10/10 plans compile |
 | 7 | not started | | | Gate B |
 | 8 | not started | | | |
 | 9 | in progress | 2026-09-07 | | tiers + unit CI in place; fixtures and mini DB land with phases 4/7 |
