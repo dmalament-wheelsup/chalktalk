@@ -104,7 +104,7 @@ the same machinery answers ten unrelated questions.
 | 1 | done | 2026-09-07 | e753384 | |
 | 2 | done | 2026-09-07 | 64d27b1 | 6 amendments; 719 MB artifact in ~60s |
 | 3 | done | 2026-09-07 | 2eb48b7 | 4 amendments; 808 columns registered |
-| 4 | done | 2026-09-08 | _pending_ | Gate A green; 241 attributes; staged 4a–4d |
+| 4 | done | 2026-09-08 | d2f1725 | Gate A green; 241 attributes; staged 4a–4d |
 | 5 | not started | | | |
 | 6 | not started | | | |
 | 7 | not started | | | Gate B |
