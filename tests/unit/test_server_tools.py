@@ -77,6 +77,19 @@ def test_the_descriptions_tell_the_model_what_not_to_do(server) -> None:
     assert "must be a term" in described["describe_schema"]
 
 
+def test_the_handshake_reports_chalktalks_own_version(server) -> None:
+    """Not the MCP SDK's.
+
+    FastMCP takes no `version` and the low-level server falls back to the mcp
+    package's, so a client would show chalktalk as whatever SDK it was built
+    against — and disagree with `build_status` in the same session.
+    """
+    from chalktalk import __version__
+
+    assert server._mcp_server.version == __version__
+    assert call(server, "build_status")["chalktalk_version"] == __version__
+
+
 def test_build_status_reports_what_it_is_running_on(server) -> None:
     out = call(server, "build_status")
     assert out["ok"]

@@ -143,6 +143,11 @@ def create_server(settings: Settings | None = None) -> FastMCP:
             "worthless."
         ),
     )
+    # FastMCP takes no `version`, and the low-level server falls back to the
+    # mcp package's own version — so clients would show chalktalk as whatever
+    # SDK it happens to be built against. build_status already reports the
+    # right one; this makes the handshake agree with it.
+    mcp._mcp_server.version = __version__
 
     def guard() -> dict[str, Any] | None:
         state.refresh()

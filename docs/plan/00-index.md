@@ -819,8 +819,8 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   13 seasons of everything including `pbp` is ~59s warm and ~82s cold on a
   laptop; the artifact is 719 MB. 02-ingest.md's acceptance note is corrected.
 
-- **2026-09-08 · phase 6 · the gate did not honour the season lag of a
-  namespace, so the envelope over-claimed coverage.** The 2026-09-07 phase 2
+- **2026-09-08 · phase 6 · `ea83a9f` · the gate did not honour the season lag
+  of a namespace, so the envelope over-claimed coverage.** The 2026-09-07 phase 2
   amendment above already recorded that `star_by_snaps` is uncomputable for
   2013; nothing enforced it. `_coverage_refs` compared a `prior_season` term's
   columns against their *data* window (2013–2025) rather than the seasons they
