@@ -12,9 +12,8 @@ from __future__ import annotations
 import duckdb
 
 from chalktalk.config import Settings
-from chalktalk.features.team_abbr import CANONICAL
 
-_SQL_TEMPLATE = """
+_SQL = """
 CREATE OR REPLACE TABLE team_season AS
 WITH reg AS (
     SELECT season, team,
@@ -63,13 +62,13 @@ SELECT
 FROM reg r
 LEFT JOIN post p          ON p.season = r.season AND p.team = r.team
 LEFT JOIN season_status ss ON ss.season = r.season
--- `teams` lists both spellings for relocated franchises; keep one row per
--- canonical code so the join cannot fan out.
+-- `teams` lists both spellings for relocated franchises (LA and LAR), so one
+-- row per abbreviation keeps the join from fanning out. The historical
+-- spellings simply never match, since team_game.team is normalized.
 LEFT JOIN (SELECT DISTINCT ON (team_abbr) team_abbr, team_division, team_conf
-           FROM teams WHERE team_abbr IN {canonical}) t ON t.team_abbr = r.team
+           FROM teams) t ON t.team_abbr = r.team
 """
 
 
 def build(conn: duckdb.DuckDBPyConnection, settings: Settings) -> None:
-    codes = "(" + ", ".join(f"'{c}'" for c in sorted(CANONICAL)) + ")"
-    conn.execute(_SQL_TEMPLATE.format(canonical=codes))
+    conn.execute(_SQL)
