@@ -108,7 +108,7 @@ the same machinery answers ten unrelated questions.
 | 5 | done | 2026-09-08 | b66cf4b | 5 signals, store, propose; mini DB landed |
 | 6 | done | 2026-09-08 | 011a504 | gate + compiler + envelope; 10/10 plans compile |
 | 7 | done | 2026-09-08 | b104b44 | Gate B: 19/21 exits, 10/10 plans on real data |
-| 8 | done | 2026-09-08 | _pending_ | 11 tools, sql guard, audit log |
+| 8 | done | 2026-09-08 | 98cc1a8 | 11 tools, sql guard, audit log |
 | 9 | in progress | 2026-09-07 | | tiers + unit CI in place; fixtures and mini DB land with phases 4/7 |
 | 10 | not started | | | |
 
