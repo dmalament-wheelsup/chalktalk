@@ -56,7 +56,7 @@ hand-written catalog entries, which is broad but cannot fail interestingly.
       the six entities, no dependency on participation or the crosswalk. Settles
       the `spread_line` sign question. Green: per-season counts, era-neutral
       attributes, spot checks.
-- [ ] **4c — the player season.** `player_play`, `player_season`.
+- [x] **4c — the player season.** _(done 2026-09-07)_ `player_play`, `player_season`.
       `player_season` reads only raw tables, so it does not need `player_game`.
 - [ ] **4d — the player game and the gate.** `player_game`, then Gate A.
 

@@ -436,6 +436,416 @@ ATTRIBUTES.update(
 )
 
 
+ATTRIBUTES.update(
+    _attrs(
+        "player_season",
+        [
+            (
+                "player_key",
+                "str",
+                "identity",
+                "Stable player key: the gsis_id, or 'pfr:<id>' for the ~0.07% of snap-count "
+                "rows that do not crosswalk. Join on this, not on a name.",
+            ),
+            (
+                "gsis_id",
+                "str",
+                "identity",
+                "nflverse player id. NULL if the crosswalk failed.",
+            ),
+            (
+                "pfr_id",
+                "str",
+                "identity",
+                "Pro Football Reference id, which snap counts are keyed by.",
+            ),
+            (
+                "player_name",
+                "str",
+                "identity",
+                "Display name. Not unique; join on player_key.",
+            ),
+            (
+                "season",
+                "int",
+                "identity",
+                "Season.",
+            ),
+            (
+                "position_group",
+                "str",
+                "identity",
+                "QB, RB, WR, TE, OL, DL, LB, DB or SPEC.",
+            ),
+            (
+                "position",
+                "str",
+                "identity",
+                "Most frequent Pro Football Reference position across the season's snap counts. "
+                "Finer than position_group: T and G rather than OL.",
+            ),
+            (
+                "unit",
+                "str",
+                "identity",
+                "offense, defense or special, from position_group. Decides which snap column "
+                "counts as snaps_unit.",
+            ),
+            (
+                "team_primary",
+                "str",
+                "identity",
+                "Team the player appeared for most often this season.",
+            ),
+            (
+                "teams_count",
+                "int",
+                "identity",
+                "Distinct teams the player recorded snaps for. Above 1 means a mid-season move.",
+            ),
+            (
+                "games",
+                "int",
+                "snaps",
+                "Regular-season games with a snap-count row, whether or not any snaps were played.",
+            ),
+            (
+                "games_with_snaps",
+                "int",
+                "snaps",
+                "Regular-season games with at least one unit snap.",
+            ),
+            (
+                "snaps_unit_total",
+                "int",
+                "snaps",
+                "Total unit snaps: offensive snaps for an offensive player, defensive for a "
+                "defensive one, special teams excluded. NULL for special-teams players.",
+            ),
+            (
+                "snaps_total",
+                "int",
+                "snaps",
+                "All snaps including special teams.",
+            ),
+            (
+                "snap_share_mean",
+                "float",
+                "snaps",
+                "Mean share of the team's unit snaps over games in which the player took at "
+                "least one. The usual measure of how large a role a player had.",
+            ),
+            (
+                "snap_share_max",
+                "float",
+                "snaps",
+                "Largest single-game unit snap share.",
+            ),
+            (
+                "team_games",
+                "int",
+                "snaps",
+                "Regular-season games the player's primary team played: 16 through 2020, 17 "
+                "from 2021.",
+            ),
+            (
+                "games_missed",
+                "int",
+                "snaps",
+                "team_games minus games_with_snaps. Any reason, not only injury.",
+            ),
+            (
+                "games_played_share",
+                "float",
+                "snaps",
+                "games_with_snaps / team_games, 0 to 1. The era-neutral availability measure, "
+                "and the default eligibility test for percentiles, which require at least 0.5.",
+            ),
+            (
+                "years_exp",
+                "int",
+                "roster",
+                "Accrued seasons before this one; 0 in a rookie year.",
+            ),
+            (
+                "is_rookie",
+                "bool",
+                "roster",
+                "players.rookie_season equals this season. Disagrees with years_exp "
+                "for a few dozen players who accrued time in another league or on "
+                "practice squads; the two fields come from different sources.",
+            ),
+            (
+                "draft_year",
+                "int",
+                "draft",
+                "Year drafted. NULL if undrafted.",
+            ),
+            (
+                "draft_round",
+                "int",
+                "draft",
+                "Round drafted, 1 to 7. NULL if undrafted.",
+            ),
+            (
+                "draft_pick",
+                "int",
+                "draft",
+                "Overall pick number. NULL if undrafted.",
+            ),
+            (
+                "undrafted",
+                "bool",
+                "draft",
+                "The player was not drafted.",
+            ),
+            (
+                "contract_year_signed",
+                "int",
+                "contract",
+                "Year the contract in force this season was signed.",
+            ),
+            (
+                "contract_years",
+                "int",
+                "contract",
+                "Length of that contract in years.",
+            ),
+            (
+                "apy",
+                "float",
+                "contract",
+                "Average per year of that contract, in millions of dollars.",
+            ),
+            (
+                "apy_cap_pct",
+                "float",
+                "contract",
+                "Average per year as a share of that season's salary cap, 0 to 1. The "
+                "inflation-proof way to compare pay across seasons. Sparse early: about 65% of "
+                "player-seasons have a contract in 2013, rising to ~99% from 2017.",
+            ),
+            (
+                "guaranteed",
+                "float",
+                "contract",
+                "Guaranteed money in that contract, in millions.",
+            ),
+            (
+                "attempts",
+                "int",
+                "production",
+                "Pass attempts. Regular season.",
+            ),
+            (
+                "attempts_per_game",
+                "float",
+                "production",
+                "Pass attempts per game played. Totals are not comparable across the 16- and "
+                "17-game eras; this is.",
+            ),
+            (
+                "completions",
+                "int",
+                "production",
+                "Completed passes. Regular season.",
+            ),
+            (
+                "completions_per_game",
+                "float",
+                "production",
+                "Completed passes per game played. Totals are not comparable across the 16- and "
+                "17-game eras; this is.",
+            ),
+            (
+                "passing_yards",
+                "int",
+                "production",
+                "Passing yards. Regular season.",
+            ),
+            (
+                "passing_yards_per_game",
+                "float",
+                "production",
+                "Passing yards per game played. Totals are not comparable across the 16- and "
+                "17-game eras; this is.",
+            ),
+            (
+                "passing_tds",
+                "int",
+                "production",
+                "Passing touchdowns. Regular season.",
+            ),
+            (
+                "passing_tds_per_game",
+                "float",
+                "production",
+                "Passing touchdowns per game played. Totals are not comparable across the 16- "
+                "and 17-game eras; this is.",
+            ),
+            (
+                "passing_interceptions",
+                "int",
+                "production",
+                "Interceptions thrown. Regular season.",
+            ),
+            (
+                "passing_interceptions_per_game",
+                "float",
+                "production",
+                "Interceptions thrown per game played. Totals are not comparable across the 16- "
+                "and 17-game eras; this is.",
+            ),
+            (
+                "sacks_suffered",
+                "int",
+                "production",
+                "Times sacked. Regular season.",
+            ),
+            (
+                "sacks_suffered_per_game",
+                "float",
+                "production",
+                "Times sacked per game played. Totals are not comparable across the 16- and "
+                "17-game eras; this is.",
+            ),
+            (
+                "carries",
+                "int",
+                "production",
+                "Rushing attempts. Regular season.",
+            ),
+            (
+                "carries_per_game",
+                "float",
+                "production",
+                "Rushing attempts per game played. Totals are not comparable across the 16- and "
+                "17-game eras; this is.",
+            ),
+            (
+                "rushing_yards",
+                "int",
+                "production",
+                "Rushing yards. Regular season.",
+            ),
+            (
+                "rushing_yards_per_game",
+                "float",
+                "production",
+                "Rushing yards per game played. Totals are not comparable across the 16- and "
+                "17-game eras; this is.",
+            ),
+            (
+                "rushing_tds",
+                "int",
+                "production",
+                "Rushing touchdowns. Regular season.",
+            ),
+            (
+                "rushing_tds_per_game",
+                "float",
+                "production",
+                "Rushing touchdowns per game played. Totals are not comparable across the 16- "
+                "and 17-game eras; this is.",
+            ),
+            (
+                "targets",
+                "int",
+                "production",
+                "Times targeted as a receiver. Regular season.",
+            ),
+            (
+                "targets_per_game",
+                "float",
+                "production",
+                "Times targeted as a receiver per game played. Totals are not comparable across "
+                "the 16- and 17-game eras; this is.",
+            ),
+            (
+                "receptions",
+                "int",
+                "production",
+                "Catches. Regular season.",
+            ),
+            (
+                "receptions_per_game",
+                "float",
+                "production",
+                "Catches per game played. Totals are not comparable across the 16- and 17-game "
+                "eras; this is.",
+            ),
+            (
+                "receiving_yards",
+                "int",
+                "production",
+                "Receiving yards. Regular season.",
+            ),
+            (
+                "receiving_yards_per_game",
+                "float",
+                "production",
+                "Receiving yards per game played. Totals are not comparable across the 16- and "
+                "17-game eras; this is.",
+            ),
+            (
+                "receiving_tds",
+                "int",
+                "production",
+                "Receiving touchdowns. Regular season.",
+            ),
+            (
+                "receiving_tds_per_game",
+                "float",
+                "production",
+                "Receiving touchdowns per game played. Totals are not comparable across the 16- "
+                "and 17-game eras; this is.",
+            ),
+            (
+                "fantasy_points",
+                "float",
+                "production",
+                "Standard-scoring fantasy points. Regular season.",
+            ),
+            (
+                "fantasy_points_per_game",
+                "float",
+                "production",
+                "Standard-scoring fantasy points per game played. Totals are not comparable "
+                "across the 16- and 17-game eras; this is.",
+            ),
+            (
+                "fantasy_points_ppr",
+                "float",
+                "production",
+                "PPR-scoring fantasy points. Regular season.",
+            ),
+            (
+                "fantasy_points_ppr_per_game",
+                "float",
+                "production",
+                "PPR-scoring fantasy points per game played. Totals are not comparable across "
+                "the 16- and 17-game eras; this is.",
+            ),
+            (
+                "qb_starts",
+                "int",
+                "roster",
+                "Regular-season games in which this player was the team's listed starting "
+                "quarterback. 0 for everyone else.",
+            ),
+            (
+                "first_unit_play_games",
+                "int",
+                "participation",
+                "Games in which the player was on the field for his unit's first snap - the "
+                "data-derived notion of starting for a non-quarterback. NULL before 2016, when "
+                "participation data begins.",
+            ),
+        ],
+    )
+)
+
+
 #: Curated descriptions for the `pbp` columns worth naming. Everything else in
 #: `pbp` is still addressable on the `play` entity; it just carries no prose.
 PLAY_DOCS: dict[str, str] = {

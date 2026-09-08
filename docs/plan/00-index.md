@@ -467,6 +467,49 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   `jersey_number`/`draft_number` rather than assume a number. The lossless test
   fails on any coercion to text that is *not* in `type_conflicts`.
 
+- **2026-09-07 · phase 4c · `player_play` must be restricted to scrimmage
+  plays.** The plan says to build it from `participation`'s offence and defence
+  lists and index the plays "where that unit was on the field". Those lists are
+  also filled on kickoffs, punts and kicks — with the *special-teams* personnel.
+  Since a kickoff opens the game, **3,114 of 5,522 "first offensive plays" were
+  kickoffs**, and a linebacker on the kickoff unit looked like an offensive
+  starter (Eric Wilson, 2024: 31 first-unit games in a 17-game season).
+  `player_play` now joins `pbp` and keeps `play_type NOT IN (kickoff, punt,
+  field_goal, extra_point)`, which also makes it consistent with `snaps_unit`,
+  which excludes special teams by definition (D12). 9.89M rows becomes 8.26M.
+  This matters directly for 4d: `pp_first_idx`, `pp_last_idx` and every
+  `pp_*_frac` are meaningless if special teams is in the denominator.
+
+- **2026-09-07 · phase 4c · three source disagreements, recorded not
+  reconciled.** Each is genuine upstream, and forcing any of them would be
+  hiding something true:
+  1. `games_played_share` can exceed 1 for a player traded mid-season, who can
+     play more games than either of his teams did — Emmanuel Sanders played 17
+     in 2019, when each team played 16. Only ever above 1 when `teams_count > 1`,
+     which a test asserts.
+  2. `is_rookie` (from `players.rookie_season`) and `years_exp` (from
+     `rosters_weekly`) disagree for a few dozen players a season, typically ones
+     who accrued time in another league or on a practice squad. The two fields
+     count different things; both are kept.
+  3. `first_unit_play_games` exceeds `games` for **3 of 27,110** player-seasons,
+     each by one game, because NFL participation has a player on the field in a
+     game where Pro Football Reference has no snap-count row (Sauce Gardner,
+     Indianapolis, 2025 week 10, after a mid-season trade).
+
+- **2026-09-07 · phase 4c · contracts are sparse before 2017.** About **65%** of
+  player-seasons have a contract in force in 2013, rising through 80% (2015) and
+  89% (2016) to ~99% from 2017. `coverage_columns` records this as
+  `non_null_rows / total_rows`; `first_season` alone would say 2013 and imply
+  the column is usable there. **`star_by_contract` (D2) is materially weaker
+  before 2017** and phases 5 and 7 should say so when proposing it.
+
+- **2026-09-07 · phase 4c · no 2012 `player_season` row exists.** Following from
+  the phase 2 amendment: `snap_counts` has no 2012 file, and `player_season` is
+  built from snap counts, so the table starts at 2013 and **a `prior_season`
+  snap definition first has data in 2014**. `rosters_weekly` and `player_stats`
+  do have 2012, so a prior-season *production* baseline for 2013 is possible;
+  only the snap-derived ones are missing.
+
 - **2026-09-07 · phase 4b · nflverse uses two team-abbreviation conventions, and
   mixing them fails silently.** `pbp` and `player_stats` always use the
   **current** franchise code (32 values, no exceptions). `schedules`,

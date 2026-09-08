@@ -45,7 +45,7 @@ def test_no_catalog_entry_names_a_missing_column(conn: duckdb.DuckDBPyConnection
     assert catalog.orphaned(conn) == {}
 
 
-@pytest.mark.parametrize("entity", ["game", "team_game", "team_season"])
+@pytest.mark.parametrize("entity", ["game", "team_game", "team_season", "player_season"])
 def test_the_catalog_type_matches_the_built_column(
     conn: duckdb.DuckDBPyConnection, entity: str
 ) -> None:
@@ -61,7 +61,7 @@ def test_the_catalog_type_matches_the_built_column(
 
 def test_booleans_are_booleans_not_flags(conn: duckdb.DuckDBPyConnection) -> None:
     """A convention from the plan: 0/1 integers invite a definition to compare them wrongly."""
-    for entity in ("game", "team_game", "team_season"):
+    for entity in ("game", "team_game", "team_season", "player_season"):
         built = {
             r[0]: r[1] for r in conn.execute(f'DESCRIBE "{ENTITIES[entity].table}"').fetchall()
         }
@@ -501,6 +501,8 @@ def test_divisions_and_conferences_are_populated(conn: duckdb.DuckDBPyConnection
         ("team_game", "team"),
         ("team_game", "opponent"),
         ("team_season", "team"),
+        ("player_season", "team_primary"),
+        ("player_play", "team"),
     ],
 )
 def test_derived_tables_use_one_spelling_per_franchise(
@@ -555,3 +557,342 @@ def test_a_pre_relocation_season_is_intact(conn: duckdb.DuckDBPyConnection) -> N
     wins, losses, off_epa = row
     assert (wins, losses) == (12, 4)
     assert off_epa is not None and off_epa != 0
+
+
+# ── player_play (2016+) ───────────────────────────────────────────────────────
+
+
+def test_participation_unnests_to_about_eight_million_rows(
+    conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """Scrimmage plays only. All ten million rows including special teams would
+    mean the kickoff filter has been lost."""
+    rows = conn.execute("SELECT count(*) FROM player_play").fetchone()[0]
+    assert 7_500_000 < rows < 9_000_000, rows
+
+
+def test_player_play_starts_at_2016(conn: duckdb.DuckDBPyConnection) -> None:
+    """D4: participation is 2016 on. Earlier games must be absent, not empty rows."""
+    first = conn.execute(
+        "SELECT min(g.season) FROM player_play pp JOIN game_ctx g ON g.game_id = pp.game_id"
+    ).fetchone()[0]
+    assert first == 2016
+
+
+def test_both_units_are_represented(conn: duckdb.DuckDBPyConnection) -> None:
+    sides = dict(conn.execute("SELECT side, count(*) FROM player_play GROUP BY side").fetchall())
+    assert set(sides) == {"offense", "defense"}
+    assert 0.9 < sides["offense"] / sides["defense"] < 1.1
+
+
+def test_a_play_fields_about_eleven_players_a_side(conn: duckdb.DuckDBPyConnection) -> None:
+    lo, avg, hi = conn.execute(
+        """
+        SELECT min(n), avg(n), max(n) FROM (
+            SELECT count(*) AS n FROM player_play
+            WHERE game_id = '2023_01_ARI_WAS' GROUP BY play_id, side
+        )
+        """
+    ).fetchone()
+    assert 10.5 < avg < 11.5, avg
+    assert lo >= 1 and hi <= 15
+
+
+def test_unit_play_index_is_dense_and_starts_at_one(conn: duckdb.DuckDBPyConnection) -> None:
+    """A gap would make pp_first_frac and pp_missed_tail_frac wrong for that game."""
+    bad = conn.execute(
+        """
+        SELECT count(*) FROM (
+            SELECT game_id, team, side,
+                   min(unit_play_idx) AS lo,
+                   max(unit_play_idx) AS hi,
+                   count(DISTINCT unit_play_idx) AS n,
+                   any_value(team_unit_plays) AS declared
+            FROM player_play GROUP BY game_id, team, side
+        ) WHERE lo <> 1 OR hi <> n OR n <> declared
+        """
+    ).fetchone()[0]
+    assert bad == 0
+
+
+def test_the_two_units_in_a_game_are_different_teams(conn: duckdb.DuckDBPyConnection) -> None:
+    """The defence is the other team; a bug here would attribute snaps to the wrong side."""
+    bad = conn.execute(
+        """
+        SELECT count(*) FROM player_play pp
+        JOIN game_ctx g ON g.game_id = pp.game_id
+        WHERE pp.team NOT IN (g.home_team, g.away_team)
+        """
+    ).fetchone()[0]
+    assert bad == 0
+
+
+def test_a_players_first_play_is_findable(conn: duckdb.DuckDBPyConnection) -> None:
+    """Aaron Rodgers 2023 W1: four snaps, so his last play is very early in the unit's game."""
+    row = conn.execute(
+        """
+        SELECT count(*), min(pp.unit_play_idx), max(pp.unit_play_idx),
+               any_value(pp.team_unit_plays)
+        FROM player_play pp
+        JOIN player_id_xwalk x ON x.gsis_id = pp.gsis_id
+        WHERE pp.game_id = '2023_01_BUF_NYJ' AND x.display_name = 'Aaron Rodgers'
+        """
+    ).fetchone()
+    plays, first, last, unit_plays = row
+    assert plays == 4
+    assert first == 1
+    assert last / unit_plays < 0.1, f"last play {last} of {unit_plays}"
+
+
+# ── player_season ─────────────────────────────────────────────────────────────
+
+
+def test_one_row_per_player_per_season(conn: duckdb.DuckDBPyConnection) -> None:
+    total, distinct = conn.execute(
+        "SELECT count(*), count(DISTINCT (player_key, season)) FROM player_season"
+    ).fetchone()
+    assert total == distinct
+
+
+def test_every_season_has_players(conn: duckdb.DuckDBPyConnection) -> None:
+    counts = dict(
+        conn.execute("SELECT season, count(*) FROM player_season GROUP BY season").fetchall()
+    )
+    assert set(counts) >= set(range(2013, 2026))
+    assert all(1500 < n < 2600 for n in counts.values()), counts
+
+
+def test_the_baseline_season_is_present(
+    conn: duckdb.DuckDBPyConnection, settings: Settings
+) -> None:
+    """D20: 2012 exists so 2013 can have prior-season attributes... except for snaps."""
+    seasons = {r[0] for r in conn.execute("SELECT DISTINCT season FROM player_season").fetchall()}
+    assert min(seasons) == settings.season_floor, (
+        "snap_counts has no 2012 file, so there is no 2012 player_season "
+        "and no prior-season snap baseline for 2013"
+    )
+
+
+def test_snaps_unit_follows_the_players_unit(conn: duckdb.DuckDBPyConnection) -> None:
+    """D12: offence snaps for an offensive player, defence for a defensive one."""
+    bad = conn.execute(
+        """
+        SELECT count(*) FROM player_season
+        WHERE unit = 'special' AND snaps_unit_total IS NOT NULL
+        """
+    ).fetchone()[0]
+    assert bad == 0
+
+
+def test_snap_share_is_a_fraction(conn: duckdb.DuckDBPyConnection) -> None:
+    lo, hi = conn.execute(
+        "SELECT min(snap_share_mean), max(snap_share_mean) FROM player_season "
+        "WHERE snap_share_mean IS NOT NULL"
+    ).fetchone()
+    assert 0.0 <= lo <= hi <= 1.0
+
+
+def test_games_played_share_is_bounded(conn: duckdb.DuckDBPyConnection) -> None:
+    """Just above 1 is legitimate: a traded player can play more games than either team.
+
+    Emmanuel Sanders played 17 in 2019 after moving from Denver to San Francisco,
+    in a season where each team played 16.
+    """
+    lo, hi = conn.execute(
+        "SELECT min(games_played_share), max(games_played_share) FROM player_season "
+        "WHERE games_played_share IS NOT NULL"
+    ).fetchone()
+    assert lo >= 0.0
+    assert hi <= 1.1, hi
+    over_one = conn.execute(
+        "SELECT count(*) FROM player_season WHERE games_played_share > 1 AND teams_count = 1"
+    ).fetchone()[0]
+    assert over_one == 0, "only a mid-season move can push availability above 1"
+
+
+def test_a_missed_season_shows_up_as_availability(conn: duckdb.DuckDBPyConnection) -> None:
+    """J.J. Watt played 3 of 16 games in 2016 with a back injury.
+
+    The stars.yaml fixture says this should make him ineligible for a
+    prior-season percentile in 2017; that only works if the number is right.
+    """
+    row = conn.execute(
+        "SELECT games_with_snaps, team_games, games_played_share FROM player_season "
+        "WHERE player_name = 'J.J. Watt' AND season = 2016"
+    ).fetchone()
+    assert row is not None
+    played, team_games, share = row
+    assert (played, team_games) == (3, 16)
+    assert abs(share - 3 / 16) < 1e-9
+    assert share < 0.5, "below the default percentile eligibility threshold"
+
+
+def test_production_totals_are_right(conn: duckdb.DuckDBPyConnection) -> None:
+    """Nick Chubb carried 302 times in 2022; Kirk Cousins threw for 4,547 yards."""
+    chubb = conn.execute(
+        "SELECT carries, rushing_yards FROM player_season "
+        "WHERE player_name = 'Nick Chubb' AND season = 2022"
+    ).fetchone()
+    assert chubb[0] == 302
+    cousins = conn.execute(
+        "SELECT passing_yards, attempts FROM player_season "
+        "WHERE player_name = 'Kirk Cousins' AND season = 2022"
+    ).fetchone()
+    assert cousins[0] == 4547
+
+
+def test_per_game_rates_divide_by_games_played(conn: duckdb.DuckDBPyConnection) -> None:
+    bad = conn.execute(
+        """
+        SELECT count(*) FROM player_season
+        WHERE games_with_snaps > 0 AND carries IS NOT NULL
+          AND abs(carries_per_game - carries::DOUBLE / games_with_snaps) > 1e-9
+        """
+    ).fetchone()[0]
+    assert bad == 0
+
+
+def test_qb_starts_add_up_to_the_seasons_games(conn: duckdb.DuckDBPyConnection) -> None:
+    """Every regular-season game has one listed starter per team."""
+    starts, expected = conn.execute(
+        """
+        SELECT (SELECT sum(qb_starts) FROM player_season WHERE season = 2023),
+               (SELECT count(*) FROM team_game WHERE season = 2023 AND game_type = 'REG')
+        """
+    ).fetchone()
+    assert starts / expected > 0.97, f"{starts} of {expected} starts attributed"
+
+
+def test_a_full_time_starter_looks_like_one(conn: duckdb.DuckDBPyConnection) -> None:
+    row = conn.execute(
+        "SELECT qb_starts, games_with_snaps, snap_share_mean, passing_yards "
+        "FROM player_season WHERE player_name = 'Aaron Rodgers' AND season = 2022"
+    ).fetchone()
+    qb_starts, games, share, yards = row
+    assert qb_starts == 17
+    assert share > 0.9
+    assert yards == 3695
+
+
+def test_the_contract_in_force_is_the_one_that_applies(
+    conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """Joe Burrow's 2022 was the rookie deal; the extension was signed in 2023.
+
+    stars.yaml turns on exactly this distinction, so it has to be right.
+    """
+    rows = dict(
+        conn.execute(
+            "SELECT season, apy_cap_pct FROM player_season "
+            "WHERE player_name = 'Joe Burrow' AND season IN (2022, 2023)"
+        ).fetchall()
+    )
+    assert rows[2022] < 0.10, "the rookie deal was a small share of the cap"
+    assert rows[2023] > 0.20, "the 2023 extension was one of the largest in the league"
+
+
+def test_contracts_are_sparse_early_and_dense_later(conn: duckdb.DuckDBPyConnection) -> None:
+    """Recorded so a contract-based definition is not trusted equally in every season."""
+    rates = dict(
+        conn.execute(
+            "SELECT season, count(apy)::DOUBLE / count(*) FROM player_season GROUP BY season"
+        ).fetchall()
+    )
+    assert rates[2013] < 0.75
+    assert rates[2023] > 0.95
+
+
+def test_rookies_are_flagged(conn: duckdb.DuckDBPyConnection) -> None:
+    """is_rookie comes from players.rookie_season, years_exp from rosters_weekly.
+
+    The two sources disagree for a handful of players a season - typically ones
+    who accrued time in another league or on a practice squad before their first
+    NFL season. Recorded rather than reconciled: neither source is wrong, they
+    count different things.
+    """
+    rookies, disagreeing = conn.execute(
+        "SELECT count(*) FILTER (is_rookie), count(*) FILTER (is_rookie AND years_exp > 0) "
+        "FROM player_season WHERE season = 2023"
+    ).fetchone()
+    assert 200 < rookies < 500, rookies
+    assert disagreeing / rookies < 0.05, f"{disagreeing} of {rookies} rookies have years_exp > 0"
+
+
+def test_draft_information_is_attached(conn: duckdb.DuckDBPyConnection) -> None:
+    """Nick Chubb went in round 2, which stars.yaml relies on for star_by_draft."""
+    row = conn.execute(
+        "SELECT draft_round, draft_pick, undrafted FROM player_season "
+        "WHERE player_name = 'Nick Chubb' AND season = 2023"
+    ).fetchone()
+    assert row == (2, 35, False)
+
+
+def test_undrafted_players_have_no_draft_row(conn: duckdb.DuckDBPyConnection) -> None:
+    bad = conn.execute(
+        "SELECT count(*) FROM player_season WHERE undrafted AND draft_round IS NOT NULL"
+    ).fetchone()[0]
+    assert bad == 0
+
+
+def test_first_unit_play_games_is_null_before_participation(
+    conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """The plan's convention: meaningless outside its window means NULL, never 0."""
+    before = conn.execute(
+        "SELECT count(*) FROM player_season "
+        "WHERE season < 2016 AND first_unit_play_games IS NOT NULL"
+    ).fetchone()[0]
+    assert before == 0
+    after = conn.execute(
+        "SELECT count(*) FROM player_season WHERE season >= 2016 AND first_unit_play_games > 0"
+    ).fetchone()[0]
+    assert after > 5000, after
+
+
+def test_first_unit_play_games_barely_ever_exceeds_games(
+    conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """The two sources disagree about a handful of games, and neither is wrong.
+
+    `games` counts Pro Football Reference snap-count rows; `first_unit_play_games`
+    counts NFL participation. Sauce Gardner is on the field for Indianapolis's
+    first defensive snap in 2025 week 10 and PFR has no snap-count row for him in
+    that game. Three player-seasons of 27,110 are affected, each by one game.
+    """
+    bad, total = conn.execute(
+        "SELECT count(*) FILTER (first_unit_play_games > games), count(*) FROM player_season"
+    ).fetchone()
+    assert bad / total < 0.001, f"{bad} of {total}"
+    worst = conn.execute(
+        "SELECT max(first_unit_play_games - games) FROM player_season "
+        "WHERE first_unit_play_games > games"
+    ).fetchone()[0]
+    assert worst == 1, f"a gap of {worst} games is more than a source disagreement"
+
+
+def test_the_first_unit_play_is_a_scrimmage_play(conn: duckdb.DuckDBPyConnection) -> None:
+    """participation fills the offence list on kickoffs too, and a kickoff opens the game.
+
+    Before this was filtered, a linebacker on the kickoff unit looked like an
+    offensive starter, and 3,114 of 5,522 "first offensive plays" were kickoffs.
+    """
+    kinds = {
+        r[0]
+        for r in conn.execute(
+            "SELECT DISTINCT b.play_type FROM player_play pp "
+            "JOIN pbp b ON b.game_id = pp.game_id AND b.play_id = pp.play_id "
+            "WHERE pp.unit_play_idx = 1"
+        ).fetchall()
+    }
+    assert kinds <= {"pass", "run", "no_play", "qb_kneel", "qb_spike"}, kinds
+
+
+def test_a_quarterback_who_started_every_game_shows_it(
+    conn: duckdb.DuckDBPyConnection,
+) -> None:
+    """D23's data-derived notion of starting, checked against a season we know."""
+    row = conn.execute(
+        "SELECT games, qb_starts, first_unit_play_games FROM player_season "
+        "WHERE player_name = 'Aaron Rodgers' AND season = 2024"
+    ).fetchone()
+    assert row == (17, 17, 17)
