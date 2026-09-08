@@ -22,6 +22,7 @@ import duckdb
 from chalktalk.config import Settings
 from chalktalk.features import (
     game_ctx,
+    player_game,
     player_play,
     player_season,
     team_game,
@@ -39,7 +40,7 @@ class Builder:
     requires: tuple[str, ...]
 
 
-#: In dependency order. Phase 4d appends player_game.
+#: In dependency order.
 BUILDERS: list[Builder] = [
     Builder("player_id_xwalk", xwalk.build, ("players", "rosters_weekly", "snap_counts")),
     Builder("game_ctx", game_ctx.build, ("schedules", "pbp", "season_status")),
@@ -59,6 +60,23 @@ BUILDERS: list[Builder] = [
             "contracts",
             "team_game",
             "player_play",
+        ),
+    ),
+    Builder(
+        "player_game",
+        player_game.build,
+        (
+            "snap_counts",
+            "player_id_xwalk",
+            "game_ctx",
+            "team_game",
+            "player_season",
+            "player_play",
+            "pbp",
+            "injuries",
+            "rosters_weekly",
+            "players",
+            "player_stats",
         ),
     ),
 ]

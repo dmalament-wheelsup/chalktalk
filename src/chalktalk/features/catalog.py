@@ -846,6 +846,462 @@ ATTRIBUTES.update(
 )
 
 
+ATTRIBUTES.update(
+    _attrs(
+        "player_game",
+        [
+            (
+                "player_key",
+                "str",
+                "identity",
+                "Stable player key: the gsis_id, or 'pfr:<id>' when the crosswalk fails.",
+            ),
+            (
+                "gsis_id",
+                "str",
+                "identity",
+                "nflverse player id. NULL if the crosswalk failed.",
+            ),
+            (
+                "pfr_id",
+                "str",
+                "identity",
+                "Pro Football Reference id, which snap counts are keyed by.",
+            ),
+            (
+                "player_name",
+                "str",
+                "identity",
+                "Display name. Not unique; join on player_key.",
+            ),
+            (
+                "season",
+                "int",
+                "identity",
+                "Season.",
+            ),
+            (
+                "week",
+                "int",
+                "identity",
+                "Week. Postseason weeks continue the count and moved with the era; test "
+                "game_type instead.",
+            ),
+            (
+                "game_type",
+                "str",
+                "context",
+                "REG, WC, DIV, CON or SB.",
+            ),
+            (
+                "is_postseason",
+                "bool",
+                "context",
+                "game_type is not REG.",
+            ),
+            (
+                "game_id",
+                "str",
+                "identity",
+                "nflverse game id.",
+            ),
+            (
+                "team",
+                "str",
+                "identity",
+                "The team the player appeared for in this game.",
+            ),
+            (
+                "opponent",
+                "str",
+                "identity",
+                "The other team.",
+            ),
+            (
+                "home",
+                "bool",
+                "context",
+                "The player's team was at home.",
+            ),
+            (
+                "position",
+                "str",
+                "identity",
+                "Pro Football Reference position for this game, finer than position_group.",
+            ),
+            (
+                "position_group",
+                "str",
+                "identity",
+                "QB, RB, WR, TE, OL, DL, LB, DB or SPEC.",
+            ),
+            (
+                "unit",
+                "str",
+                "identity",
+                "offense, defense or special, from position_group.",
+            ),
+            (
+                "offense_snaps",
+                "int",
+                "snaps",
+                "Offensive snaps played, as reported by Pro Football Reference.",
+            ),
+            (
+                "offense_pct",
+                "float",
+                "snaps",
+                "Share of the team's offensive snaps, 0 to 1.",
+            ),
+            (
+                "defense_snaps",
+                "int",
+                "snaps",
+                "Defensive snaps played.",
+            ),
+            (
+                "defense_pct",
+                "float",
+                "snaps",
+                "Share of the team's defensive snaps, 0 to 1.",
+            ),
+            (
+                "st_snaps",
+                "int",
+                "snaps",
+                "Special-teams snaps played.",
+            ),
+            (
+                "st_pct",
+                "float",
+                "snaps",
+                "Share of the team's special-teams snaps, 0 to 1.",
+            ),
+            (
+                "snaps_unit",
+                "int",
+                "snaps",
+                "Snaps on the player's own unit: offensive snaps for an offensive player, "
+                "defensive for a defensive one, special teams excluded. NULL for special-teams "
+                "players. This is what 'snaps' means unqualified.",
+            ),
+            (
+                "snap_share_unit",
+                "float",
+                "snaps",
+                "snaps_unit as a share of the team's unit snaps, 0 to 1.",
+            ),
+            (
+                "snaps_total",
+                "int",
+                "snaps",
+                "All snaps including special teams.",
+            ),
+            (
+                "roster_status",
+                "str",
+                "roster",
+                "Roster status that week: ACT, RES (reserve/injured), INA, DEV, CUT and others.",
+            ),
+            (
+                "years_exp",
+                "int",
+                "roster",
+                "Accrued seasons before this one; 0 in a rookie year.",
+            ),
+            (
+                "is_rookie",
+                "bool",
+                "roster",
+                "This was the player's first NFL season.",
+            ),
+            (
+                "is_starting_qb",
+                "bool",
+                "roster",
+                "This player was his team's listed starting quarterback for this game. The "
+                "listed starter is not always who took the first snap; pp_first_idx = 1 is that "
+                "notion.",
+            ),
+            (
+                "inj_listed",
+                "bool",
+                "injury",
+                "The player appeared on this week's injury report with a game status, or did "
+                "not practise fully. The report is published before kickoff, so it says nothing "
+                "about what happened during the game.",
+            ),
+            (
+                "inj_report_status",
+                "str",
+                "injury",
+                "This week's game designation: Out, Doubtful, Questionable, Probable, or NULL.",
+            ),
+            (
+                "inj_practice_status",
+                "str",
+                "injury",
+                "This week's practice participation: full, limited or did not participate.",
+            ),
+            (
+                "inj_primary_injury",
+                "str",
+                "injury",
+                "The injury named on this week's report, e.g. Knee.",
+            ),
+            (
+                "attempts",
+                "int",
+                "production",
+                "Pass attempts in this game.",
+            ),
+            (
+                "completions",
+                "int",
+                "production",
+                "Completed passes in this game.",
+            ),
+            (
+                "passing_yards",
+                "int",
+                "production",
+                "Passing yards in this game.",
+            ),
+            (
+                "passing_tds",
+                "int",
+                "production",
+                "Passing touchdowns in this game.",
+            ),
+            (
+                "passing_interceptions",
+                "int",
+                "production",
+                "Interceptions thrown in this game.",
+            ),
+            (
+                "sacks_suffered",
+                "int",
+                "production",
+                "Times sacked in this game.",
+            ),
+            (
+                "carries",
+                "int",
+                "production",
+                "Rushing attempts in this game.",
+            ),
+            (
+                "rushing_yards",
+                "int",
+                "production",
+                "Rushing yards in this game.",
+            ),
+            (
+                "rushing_tds",
+                "int",
+                "production",
+                "Rushing touchdowns in this game.",
+            ),
+            (
+                "targets",
+                "int",
+                "production",
+                "Times targeted as a receiver in this game.",
+            ),
+            (
+                "receptions",
+                "int",
+                "production",
+                "Catches in this game.",
+            ),
+            (
+                "receiving_yards",
+                "int",
+                "production",
+                "Receiving yards in this game.",
+            ),
+            (
+                "receiving_tds",
+                "int",
+                "production",
+                "Receiving touchdowns in this game.",
+            ),
+            (
+                "fantasy_points",
+                "float",
+                "production",
+                "Standard-scoring fantasy points in this game.",
+            ),
+            (
+                "fantasy_points_ppr",
+                "float",
+                "production",
+                "PPR-scoring fantasy points in this game.",
+            ),
+            (
+                "pp_available",
+                "bool",
+                "participation",
+                "Play-by-play participation exists for this game and unit, so the pp_* columns "
+                "mean something. False before 2016 and for a minority of games after.",
+            ),
+            (
+                "pp_plays",
+                "int",
+                "participation",
+                "Scrimmage plays the player was on the field for, from participation.",
+            ),
+            (
+                "pp_team_unit_plays",
+                "int",
+                "participation",
+                "Scrimmage plays the player's unit was on the field for in this game.",
+            ),
+            (
+                "pp_first_idx",
+                "int",
+                "participation",
+                "Index of the player's first play among his unit's plays, 1 being the unit's "
+                "first snap of the game. 1 means he started, derived from the field rather than "
+                "a depth chart.",
+            ),
+            (
+                "pp_last_idx",
+                "int",
+                "participation",
+                "Index of the player's last play among his unit's plays.",
+            ),
+            (
+                "pp_first_frac",
+                "float",
+                "participation",
+                "Share of the unit's plays that happened before the player's first, 0 to 1.",
+            ),
+            (
+                "pp_last_frac",
+                "float",
+                "participation",
+                "Share of the unit's plays up to and including the player's last, 0 to 1.",
+            ),
+            (
+                "pp_missed_tail_frac",
+                "float",
+                "participation",
+                "Share of the unit's plays that happened after the player's last one. The "
+                "direct measure of leaving and not returning: 0 means he was there at the end, "
+                "0.9 means he left almost immediately.",
+            ),
+            (
+                "pp_missed_head_frac",
+                "float",
+                "participation",
+                "Share of the unit's plays before the player entered. High means he came on late.",
+            ),
+            (
+                "pp_last_qtr",
+                "int",
+                "participation",
+                "Quarter of the player's last play. 5 is overtime.",
+            ),
+            (
+                "pp_last_gsr",
+                "int",
+                "participation",
+                "Seconds left in the game at the player's last play.",
+            ),
+            (
+                "recent_snap_share",
+                "float",
+                "baseline",
+                "Mean snap_share_unit over the player's previous four games this season in "
+                "which he took a snap. Games he missed are skipped, not counted as zero. NULL "
+                "in his first game of a season.",
+            ),
+            (
+                "recent_games",
+                "int",
+                "baseline",
+                "How many games recent_snap_share averages, 0 to 4. A value of 1 makes the "
+                "baseline fragile; a definition can require more.",
+            ),
+            (
+                "prior_season_snap_share",
+                "float",
+                "baseline",
+                "The player's snap_share_mean last season. NULL for a rookie or after a missed "
+                "year.",
+            ),
+            (
+                "prior_season_games",
+                "int",
+                "baseline",
+                "Games with snaps last season, which says how much the prior-season baseline is "
+                "worth.",
+            ),
+            (
+                "baseline_share",
+                "float",
+                "baseline",
+                "What this player's snap share normally looks like: recent_snap_share when "
+                "there is one, otherwise prior_season_snap_share. Without it a backup's quiet "
+                "afternoon looks like a starter's early exit.",
+            ),
+            (
+                "baseline_source",
+                "str",
+                "baseline",
+                "Which of the two baseline_share came from: recent, prior_season, or NULL if "
+                "neither exists.",
+            ),
+            (
+                "team_prev_game_id",
+                "str",
+                "linkage",
+                "The team's previous game this season, by schedule order, so byes are handled. "
+                "NULL in week 1.",
+            ),
+            (
+                "team_next_game_id",
+                "str",
+                "linkage",
+                "The team's next game this season, postseason included. NULL after the team's "
+                "last game, which is what makes a season-ending exit uncorroborable.",
+            ),
+            (
+                "played_team_prev_game",
+                "bool",
+                "linkage",
+                "The player took a unit snap in the team's previous game. NULL when there was "
+                "no previous game.",
+            ),
+            (
+                "played_team_next_game",
+                "bool",
+                "linkage",
+                "The player took a unit snap in the team's next game. NULL when there is no "
+                "next game. False after starting is the strongest single sign of an injury "
+                "exit, and also what a player who simply lost his job looks like.",
+            ),
+            (
+                "reserve_within_3_games",
+                "bool",
+                "linkage",
+                "The player appears on the reserve list in any of the team's next three game "
+                "weeks.",
+            ),
+            (
+                "corroboration_available",
+                "bool",
+                "linkage",
+                "There is a next game, so an inferred exit can be corroborated at all. False "
+                "for a team's final game of a season.",
+            ),
+        ],
+    )
+)
+
+
 #: Curated descriptions for the `pbp` columns worth naming. Everything else in
 #: `pbp` is still addressable on the `play` entity; it just carries no prose.
 PLAY_DOCS: dict[str, str] = {

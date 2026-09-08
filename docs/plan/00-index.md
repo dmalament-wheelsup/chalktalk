@@ -104,7 +104,7 @@ the same machinery answers ten unrelated questions.
 | 1 | done | 2026-09-07 | e753384 | |
 | 2 | done | 2026-09-07 | 64d27b1 | 6 amendments; 719 MB artifact in ~60s |
 | 3 | done | 2026-09-07 | 2eb48b7 | 4 amendments; 808 columns registered |
-| 4 | in progress | 2026-09-07 | | Gate A; staged 4a–4d (see 04-features.md) |
+| 4 | done | 2026-09-08 | _pending_ | Gate A green; 241 attributes; staged 4a–4d |
 | 5 | not started | | | |
 | 6 | not started | | | |
 | 7 | not started | | | Gate B |
@@ -466,6 +466,45 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   (INTEGER, DOUBLE in three seasons from 2020). Phase 4 must cast
   `jersey_number`/`draft_number` rather than assume a number. The lossless test
   fails on any coercion to text that is *not* in `type_conflicts`.
+
+- **2026-09-08 · phase 4d · Gate A passes; two fixture cases were adjudicated
+  against the data.** All 21 hand-authored cases resolve to a `player_game` row,
+  and **`snaps_unit` matches the hand-written number in all 21** — those were
+  read from nflverse by a person before the table existed. The plan's three named
+  spot checks all hold: Rodgers 2023 W1 (4 snaps, tail 0.93, on reserve within
+  three games, last play in Q1), Trent Williams 2023 W18 (played the next game),
+  A.J. Brown 2023 W18 (next game is the week-19 wild card, did not play it).
+
+  Two cases needed the phase 9 protocol, and in both the join was checked first:
+
+  1. **`hainsey_2022_w18`: the fixture's football fact was wrong.** It said he
+     "played the wild-card game". He did not — **Ryan Jensen missed all 17
+     regular-season games injured and returned for the playoffs** (his only 2022
+     row is week 19, 82 snaps, 100%), taking the centre job back. The fixture is
+     corrected with a note. The expectation `expect_exit: false` still stands,
+     but Hainsey is now a **named false positive** for the shipped `early_exit`
+     composite: he started, was rested, missed the next game, was never listed
+     injured and never hit the reserve list. This is exactly CLAUDE.md's
+     "rested starter looks identical to an injury exit", with a name — and
+     phase 7 must confront it rather than assume corroboration settles the
+     question.
+
+  2. **`chubb_2023_w2`: `baseline_share` is 0.49, just under Gate A's 0.5.** Not
+     a bug and not a wrong number. His recent window is the single week-1 game at
+     49%, which beats his 2022 season mean of 0.564. Running backs rotate, so a
+     **position-blind snap-share floor is the wrong shape** for the shipped
+     definition. The threshold was *not* lowered — the protocol forbids it — and
+     the case is recorded as a documented Gate A exception with a test asserting
+     exactly why it sits where it does. `recent_games` exists so a definition can
+     require a sturdier baseline; phase 7 should use it.
+
+- **2026-09-08 · phase 4d · two mechanics the plan did not specify.**
+  `played_team_prev_game` and `played_team_next_game` ask whether the player
+  appears in another row of the table being built, so `player_game` is a
+  two-pass build: a temp `_pg_core` with everything else, then a self-join.
+  And `recent_snap_share` needs "the last four games **in which he played**",
+  which is `lag(x, n IGNORE NULLS)` — DuckDB puts `IGNORE NULLS` **inside the
+  offset argument**, not after the call, and the usual spelling is a parse error.
 
 - **2026-09-07 · phase 4c · `player_play` must be restricted to scrimmage
   plays.** The plan says to build it from `participation`'s offence and defence

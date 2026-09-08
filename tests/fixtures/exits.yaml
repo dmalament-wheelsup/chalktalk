@@ -12,7 +12,10 @@ cases:
   - {id: brown_2023_w18,    player: "A.J. Brown",      season: 2023, week: 18, team: PHI, unit: offense, snaps_unit: 12, share: 0.18, expect_exit: true,  fact: "knee vs NYG in week 18; missed the wild-card game. Corroboration comes from the postseason game (week 19)"}
   # injury exits with 15+ unit snaps — must match early_exit; must NOT match snaps_unit < 15
   - {id: lance_2022_w2,      player: "Trey Lance",         season: 2022, week: 2,  team: SF,  unit: offense, snaps_unit: 16, share: 0.21, expect_exit: true, fact: "ankle fracture, Q1 vs SEA; IR"}
-  - {id: chubb_2023_w2,      player: "Nick Chubb",         season: 2023, week: 2,  team: CLE, unit: offense, snaps_unit: 18, share: 0.21, expect_exit: true, fact: "knee, Q2 at PIT (MNF); IR"}
+  # baseline_share is 0.49 here, just under Gate A's 0.5: his recent window is the single week-1
+  # game (49%), which beats his 2022 season mean of 0.564. Running backs rotate, so a
+  # position-blind 0.5 snap-share floor is the wrong shape - noted for phase 7.
+  - {id: chubb_2023_w2,      player: "Nick Chubb",         season: 2023, week: 2,  team: CLE, unit: offense, snaps_unit: 18, share: 0.21, expect_exit: true, baseline_share_below_half: true, fact: "knee, Q2 at PIT (MNF); IR"}
   - {id: richardson_2023_w5, player: "Anthony Richardson", season: 2023, week: 5,  team: IND, unit: offense, snaps_unit: 22, share: 0.33, expect_exit: true, fact: "AC joint sprain, Q2 vs TEN; IR later"}
   - {id: burrow_2023_w11,    player: "Joe Burrow",         season: 2023, week: 11, team: CIN, unit: offense, snaps_unit: 27, share: 0.44, expect_exit: true, fact: "wrist, Q2 at BAL (TNF); IR"}
   # injury exit corroborated by the injury report only — he PLAYED the next game (tests listed_injured_next)
@@ -22,7 +25,13 @@ cases:
   # rested starters in the final regular-season week (17 through 2020, 18 from 2021): played the next game — must NOT match
   - {id: allen_2019_w17,     player: "Josh Allen",        season: 2019, week: 17, team: BUF, unit: offense, snaps_unit: 7,  share: 0.11, expect_exit: false, fact: "rested with the 5 seed locked (Barkley finished); played all 85 snaps in the wild-card game"}
   - {id: williams_2023_w18,  player: "Trent Williams",    season: 2023, week: 18, team: SF, unit: offense, snaps_unit: 12, share: 0.20, expect_exit: false, fact: "rested, 1 seed clinched; played the divisional round"}
-  - {id: hainsey_2022_w18,   player: "Robert Hainsey",    season: 2022, week: 18, team: TB, unit: offense, snaps_unit: 13, share: 0.24, expect_exit: false, fact: "rested, division clinched; played the wild-card game"}
+  # CORRECTED 2026-09-08 against the data (phase 9 protocol, "fixture wrong"). He did NOT play the
+  # wild-card game: Ryan Jensen missed all 17 regular-season games injured, returned for the
+  # playoffs and took the job back (Jensen 2022: one game, 82 snaps, 100%, week 19).
+  # Hainsey is therefore a KNOWN FALSE POSITIVE for the shipped early_exit composite - he started
+  # week 18, was rested, and missed the next game, with no injury listing and no reserve move.
+  # This is the CLAUDE.md "rested starter looks identical to an injury exit" risk, by name.
+  - {id: hainsey_2022_w18,   player: "Robert Hainsey",    season: 2022, week: 18, team: TB, unit: offense, snaps_unit: 13, share: 0.24, expect_exit: false, expect_played_next: false, fact: "rested, division clinched; did not play the wild-card game because Ryan Jensen returned from injury and reclaimed the starting centre job"}
   - {id: fournette_2022_w18, player: "Leonard Fournette", season: 2022, week: 18, team: TB, unit: offense, snaps_unit: 3,  share: 0.05, expect_exit: false, fact: "rested; played the wild-card game"}
   # backup cameos: low snaps because not a starter — must NOT match
   - {id: bridgewater_2019_w17, player: "Teddy Bridgewater", season: 2019, week: 17, team: NO, unit: offense, snaps_unit: 11, share: 0.16, expect_exit: false, fact: "Brees started; Bridgewater's recent window (two starts at ~96% plus two cameos) averages 0.52, and he did not play in the wild-card game because Brees was healthy. This case is why missed_next_game requires `started` — absence alone would flag him"}

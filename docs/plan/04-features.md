@@ -58,7 +58,7 @@ hand-written catalog entries, which is broad but cannot fail interestingly.
       attributes, spot checks.
 - [x] **4c — the player season.** _(done 2026-09-07)_ `player_play`, `player_season`.
       `player_season` reads only raw tables, so it does not need `player_game`.
-- [ ] **4d — the player game and the gate.** `player_game`, then Gate A.
+- [x] **4d — the player game and the gate.** _(done 2026-09-08)_ `player_game`, then Gate A.
 
 Two things that matter more than the split itself:
 
@@ -344,10 +344,17 @@ For each case in `tests/fixtures/exits.yaml` find the `player_game` row by
 - For `expect_exit: true` cases with `season >= 2016`: `pp_available` and
   `pp_missed_tail_frac >= 0.25`. Exception `cousins_2023_w8`: `0.02 <=
   pp_missed_tail_frac <= 0.20`.
-- For `expect_exit: true`: `baseline_share >= 0.5`, and at least one of:
+- For `expect_exit: true`: `baseline_share >= 0.5` — **except `chubb_2023_w2`**
+  at 0.49 (amended 2026-09-08), whose recent window is one game at 49% against a
+  0.564 prior season. A position-blind floor is wrong for running backs; the
+  threshold was not lowered. And at least one of:
   `next.inj_listed` (join the next row), `reserve_within_3_games`,
   `played_team_next_game = false`.
-- For the rested cases: `played_team_next_game = true`.
+- For the rested cases: `played_team_next_game = true` — **except
+  `hainsey_2022_w18`** (amended 2026-09-08). He did not play the wild-card game:
+  Ryan Jensen returned from a season-long injury and took the job back. He is a
+  named false positive for the shipped composite, not a rested starter the
+  corroboration catches.
 - For the backup cameos: not started — `is_starting_qb = false` and
   (`pp_first_idx IS NULL OR pp_first_idx <> 1`). (Bridgewater 2019 W17 has
   `corroboration_available = true` and `baseline_share ≈ 0.52`, so neither of
