@@ -409,7 +409,14 @@ def build(
         # the feature layer (game_ctx needs each season's regular-season length,
         # D24). Column coverage describes the feature layer and so runs after it.
         coverage.build_season_status(conn, settings)
-        if not skip_features:
+        if skip_features:
+            # A database with no entity tables answers nothing. Publishing one
+            # over a complete artifact is almost never what was meant.
+            log.warning(
+                "--skip-features: this artifact will have no feature layer%s",
+                "; it is being published as CURRENT anyway" if publish else "",
+            )
+        else:
             features.build_all(conn, settings)
         coverage.build(conn, settings)
 

@@ -100,14 +100,21 @@ class DefinitionStore:
             for alias in definition.aliases:
                 self._by_alias[alias] = definition.name
 
-        for definition in parsed:
-            try:
-                self.validate(definition)
-            except (InvalidDefinition, EntityMismatch, Exception) as exc:  # noqa: BLE001
-                self.broken[definition.name] = _one_line(exc)
-
-        for name in self.broken:
-            self._by_name.pop(name, None)
+        # Validate to a fixed point: a composite whose term turns out to be
+        # broken is broken too, and the files are read in alphabetical order, so
+        # one pass would let it through when the term sorts after it.
+        while True:
+            newly_broken = {}
+            for definition in list(self._by_name.values()):
+                try:
+                    self.validate(definition)
+                except Exception as exc:  # noqa: BLE001 — any failure quarantines
+                    newly_broken[definition.name] = _one_line(exc)
+            if not newly_broken:
+                break
+            self.broken.update(newly_broken)
+            for name in newly_broken:
+                self._by_name.pop(name, None)
         self._by_alias = {
             alias: name for alias, name in self._by_alias.items() if name in self._by_name
         }
