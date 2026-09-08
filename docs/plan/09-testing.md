@@ -32,8 +32,10 @@ tables, so schema drift between production SQL and tests is impossible:
    with `posteam, defteam, play_type, down, epa, success, score_differential,
    qtr, game_seconds_remaining, wp, yardline_100`).
 2. Run `features.build_all(conn, settings)` and `coverage.build(conn, settings)`.
-3. Fixtures: `mini_conn`, `mini_settings`, `mini_store` (temp definitions dir
-   with shipped definitions installed), `mini_catalog`, `mini_coverage`.
+3. Fixtures: `mini_conn`, `mini_settings`, `mini_store` (temp definitions dir),
+   `mini_ctx` (a ValidationCtx factory), `mini_coverage`. Built 2026-09-08 in
+   `tests/mini.py`; `mini_catalog` was not needed, since the catalog is static
+   for every entity but `play`.
 
 A unit test asserts the mini DB's derived tables have exactly the catalog's
 columns (phase 4's completeness test runs here too).

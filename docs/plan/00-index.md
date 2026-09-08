@@ -105,7 +105,7 @@ the same machinery answers ten unrelated questions.
 | 2 | done | 2026-09-07 | 64d27b1 | 6 amendments; 719 MB artifact in ~60s |
 | 3 | done | 2026-09-07 | 2eb48b7 | 4 amendments; 808 columns registered |
 | 4 | done | 2026-09-08 | d2f1725 | Gate A green; 241 attributes; staged 4a–4d |
-| 5 | not started | | | |
+| 5 | done | 2026-09-08 | _pending_ | 5 signals, store, propose; mini DB landed |
 | 6 | not started | | | |
 | 7 | not started | | | Gate B |
 | 8 | not started | | | |
@@ -466,6 +466,49 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   (INTEGER, DOUBLE in three seasons from 2020). Phase 4 must cast
   `jersey_number`/`draft_number` rather than assume a number. The lossless test
   fails on any coercion to text that is *not* in `type_conflicts`.
+
+- **2026-09-08 · phase 5 · two lifting bugs the plan's design invited.**
+  (1) Signals emit `{namespace}` placeholders, and the plan resolves them
+  through `CompileCtx.alias_of` — but a signal never calls `alias_of`, it just
+  writes the placeholder. So a lifted term kept its own `{self}`: a
+  `prior_season` `player_season` term used inside a `player_game` composite
+  would have read `snap_share_mean` off the `player_game` row, where no such
+  column exists. `composite` now rewrites a term's placeholders through
+  `lift_namespace` in a single regex pass, so renaming `self`→`prior` cannot
+  then rename `prior`→something else. (2) The store validated in alphabetical
+  order, so a composite naming a term that sorts after it was accepted even when
+  that term was broken; validation now runs to a fixed point.
+
+- **2026-09-08 · phase 5 · `propose` must not offer a top-percentile of an
+  inverted ordinal.** The automatic fallback suggested "draft_round at or above
+  the 90th percentile", which is backwards — round 1 is the best round, which is
+  exactly why D2 ships `star_by_draft` as a *rule* (`draft_round = 1`). The
+  fallback is now restricted to attribute families where a larger number means
+  more of the thing (`snaps`, `production`, `contract`, `epa`, `result`).
+  Related: when a family is `not_computable`, no substitute is offered at all —
+  the note explains what could stand in, but quietly answering a different
+  question is the failure this project exists to prevent.
+
+- **2026-09-08 · phase 5 · `build --skip-features` published a database with no
+  entity tables.** It publishes by default, so a `--skip-features` run replaced
+  a complete artifact with one that answers nothing; this broke the data tier
+  mid-phase. It now warns loudly, and says so again when it is also publishing.
+
+- **2026-09-08 · phase 5 · the mini database is real, and it is the phase 9
+  conftest.** Two seasons, two teams, three regular-season weeks, a playoff
+  game, eight players, pushed through the *production* builders so schema drift
+  between fixtures and real SQL is impossible. Its `season_status` comes out at
+  3 regular-season weeks and a 2-team playoff — invented numbers that the
+  era-neutral code reads without complaint, which is the point of D24.
+  Fixtures: `mini_conn`, `mini_settings`, `mini_store`, `mini_ctx`,
+  `mini_coverage`.
+
+- **2026-09-08 · phase 5 · percentile tie semantics, confirmed both ways.**
+  `top P` and `bottom (100-P)` return the same rows when a tied group straddles
+  the cut, because a tied group is indivisible and is included whenever any part
+  of it falls inside the slice. In a ten-row cohort with four tied at the top,
+  `top 30` and `bottom 70` both return all ten. This follows from the plan's
+  `cume_dist` spec and is pinned by tests at both ends.
 
 - **2026-09-08 · phase 4d · Gate A passes; two fixture cases were adjudicated
   against the data.** All 21 hand-authored cases resolve to a `player_game` row,

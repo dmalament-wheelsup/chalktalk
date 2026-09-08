@@ -9,6 +9,7 @@ from __future__ import annotations
 import platform
 import sys
 from importlib import metadata
+from pathlib import Path
 
 import click
 
@@ -27,7 +28,6 @@ from chalktalk.paths import (
 
 _STUB_PHASE = {
     "serve": 8,
-    "defs": 5,
     "logs": 8,
 }
 
@@ -229,10 +229,178 @@ def coverage(table: str | None, column: str | None, show_seasons: bool, rebuild:
         conn.close()
 
 
-@main.command()
+def _open_store(directory: str | None = None):
+    """A store bound to the published database."""
+    from chalktalk.db import open_ro, read_current
+    from chalktalk.definitions.context import open_store
+
+    s = Settings.load()
+    artifact = read_current(s)
+    if artifact is None:
+        raise click.ClickException("no database; run `chalktalk build`")
+    conn = open_ro(artifact, s)
+    return open_store(conn, s, directory=Path(directory) if directory else None), conn
+
+
+@main.group()
 def defs() -> None:
-    """Manage the definitions store."""
-    _not_implemented("defs")
+    """Inspect and manage the definitions store."""
+
+
+@defs.command("list")
+@click.option("--broken", "only_broken", is_flag=True, help="Show only quarantined definitions.")
+def defs_list(only_broken: bool) -> None:
+    """List saved definitions."""
+    store, conn = _open_store()
+    try:
+        rows = [s for s in store.list() if not only_broken or s.broken]
+        if not rows:
+            print("no definitions" + (" are broken" if only_broken else " saved yet"))
+            return
+        width = max(len(s.name) for s in rows)
+        for summary in rows:
+            flag = "BROKEN " if summary.broken else ""
+            print(
+                f"{summary.name:<{width}}  {summary.entity:<14} {summary.signal:<11} "
+                f"{flag}{summary.broken or summary.description}"
+            )
+    finally:
+        conn.close()
+
+
+@defs.command("show")
+@click.argument("name")
+def defs_show(name: str) -> None:
+    """Explain a definition, and the definitions it is built from."""
+    from chalktalk.definitions.explain import explain
+
+    store, conn = _open_store()
+    try:
+        definition = store.get(name)
+        if definition is None:
+            raise click.ClickException(f"no definition named {name!r}")
+        print(explain(definition, store).render())
+        print()
+        print(definition.model_dump_json(indent=2))
+    finally:
+        conn.close()
+
+
+@defs.command("validate")
+def defs_validate() -> None:
+    """Recheck every definition against the current schema."""
+    store, conn = _open_store()
+    try:
+        report = store.load()
+        print(f"{report.loaded} valid, {len(report.broken)} broken")
+        for name, why in sorted(report.broken.items()):
+            print(f"  {name}: {why}")
+        if report.broken:
+            raise SystemExit(1)
+    finally:
+        conn.close()
+
+
+@defs.command("add")
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--overwrite", is_flag=True, help="Replace an existing definition.")
+def defs_add(file: Path, overwrite: bool) -> None:
+    """Save a definition from a JSON file."""
+    import json
+
+    from chalktalk.definitions.spec import DefinitionIn, InvalidDefinition
+
+    store, conn = _open_store()
+    try:
+        payload = json.loads(file.read_text(encoding="utf-8"))
+        known = set(DefinitionIn.model_fields)
+        incoming = DefinitionIn(**{k: v for k, v in payload.items() if k in known})
+        saved = store.save(incoming, overwrite=overwrite)
+        print(f"saved {saved.name} v{saved.version}")
+    except InvalidDefinition as exc:
+        raise click.ClickException(exc.message) from exc
+    finally:
+        conn.close()
+
+
+@defs.command("rm")
+@click.argument("name")
+def defs_rm(name: str) -> None:
+    """Delete a definition, keeping its history."""
+    from chalktalk.definitions.spec import InvalidDefinition
+
+    store, conn = _open_store()
+    try:
+        store.delete(name)
+        print(f"removed {name} (previous version kept in .history)")
+    except InvalidDefinition as exc:
+        raise click.ClickException(exc.message) from exc
+    finally:
+        conn.close()
+
+
+@defs.command("export")
+@click.argument("directory", type=click.Path(file_okay=False, path_type=Path))
+def defs_export(directory: Path) -> None:
+    """Write every definition to a directory."""
+    store, conn = _open_store()
+    try:
+        print(f"exported {store.export(directory)} definitions to {directory}")
+    finally:
+        conn.close()
+
+
+@defs.command("import")
+@click.argument("path", type=click.Path(exists=True, path_type=Path))
+@click.option("--overwrite", is_flag=True, help="Replace definitions that already exist.")
+def defs_import(path: Path, overwrite: bool) -> None:
+    """Read definitions from a file or directory."""
+    store, conn = _open_store()
+    try:
+        report = store.import_(path, overwrite=overwrite)
+        print(
+            f"added {len(report.added)}, skipped {len(report.skipped)}, failed {len(report.failed)}"
+        )
+        for name, why in sorted(report.failed.items()):
+            print(f"  {name}: {why}")
+    finally:
+        conn.close()
+
+
+@defs.command("propose")
+@click.argument("term")
+@click.option("--context", help="The rest of the question, for better suggestions.")
+@click.option("--entity", help="Restrict to one entity.")
+def defs_propose(term: str, context: str | None, entity: str | None) -> None:
+    """Show what a fuzzy word could mean, grounded in what is computable."""
+    from chalktalk.definitions.propose import propose
+
+    store, conn = _open_store()
+    try:
+        proposal = propose(term, context, entity, store=store)
+        if proposal.matches:
+            print("you already have:")
+            for match in proposal.matches:
+                print(f"  {match.name}  {match.description}")
+        for note in proposal.notes:
+            print(f"\nnote: {note}")
+        for why in proposal.not_computable:
+            print(f"\nnot computable: {why}")
+        if proposal.suggestions:
+            print("\nsuggestions:")
+            for suggestion in proposal.suggestions:
+                span = suggestion.coverage
+                covered = f"  [{span.first}-{span.last}]" if span else ""
+                print(f"  {suggestion.definition.name}: {suggestion.explanation}{covered}")
+        if proposal.related_attributes:
+            print("\nrelated attributes:")
+            for attribute in proposal.related_attributes[:10]:
+                print(
+                    f"  {attribute.entity}.{attribute.name} ({attribute.type})"
+                    f" — {attribute.description[:70]}"
+                )
+    finally:
+        conn.close()
 
 
 @main.command()

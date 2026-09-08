@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -14,7 +15,7 @@ from chalktalk.config import Settings
 
 @pytest.mark.parametrize(
     ("command", "phase"),
-    [("defs", 5), ("serve", 8), ("logs", 8)],
+    [("serve", 8), ("logs", 8)],
 )
 def test_stubs_exit_two(command: str, phase: int) -> None:
     result = CliRunner().invoke(main, [command])
@@ -107,3 +108,92 @@ def test_coverage_reads_the_registry(tmp_settings: Settings) -> None:
     missing = CliRunner().invoke(main, ["coverage", "nonesuch"])
     assert missing.exit_code != 0
     assert "nothing in the registry" in missing.output
+
+
+def _mini_artifact(tmp_settings: Settings):
+    """A published artifact built from the mini league, for the defs commands."""
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from dataclasses import replace
+
+    from mini import build_mini
+
+    mini = build_mini(replace(tmp_settings, season_floor=2022))
+    artifact = paths.artifact_path(tmp_settings, date(2026, 9, 8))
+    mini.execute(f"ATTACH '{artifact}' AS out")
+    for (table,) in mini.execute(
+        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
+    ).fetchall():
+        mini.execute(f'CREATE TABLE out."{table}" AS SELECT * FROM "{table}"')
+    mini.execute("DETACH out")
+    mini.close()
+    db.write_current(tmp_settings, artifact)
+
+
+def test_defs_list_is_empty_to_begin_with(tmp_settings: Settings) -> None:
+    _mini_artifact(tmp_settings)
+    result = CliRunner().invoke(main, ["defs", "list"])
+    assert result.exit_code == 0, result.output
+    assert "no definitions" in result.output
+
+
+def test_defs_add_show_and_remove(tmp_settings: Settings, tmp_path: Path) -> None:
+    _mini_artifact(tmp_settings)
+    spec = tmp_path / "played.json"
+    spec.write_text(
+        '{"name": "played", "entity": "player_game", "signal": "rule", '
+        '"params": {"rules": [{"attr": "snaps_unit", "op": ">=", "value": 1}]}, '
+        '"description": "took a snap"}'
+    )
+
+    added = CliRunner().invoke(main, ["defs", "add", str(spec)])
+    assert added.exit_code == 0, added.output
+    assert "saved played v1" in added.output
+
+    listed = CliRunner().invoke(main, ["defs", "list"])
+    assert "played" in listed.output and "took a snap" in listed.output
+
+    shown = CliRunner().invoke(main, ["defs", "show", "played"])
+    assert shown.exit_code == 0
+    assert "snaps_unit ≥ 1" in shown.output
+
+    validated = CliRunner().invoke(main, ["defs", "validate"])
+    assert validated.exit_code == 0
+    assert "1 valid, 0 broken" in validated.output
+
+    removed = CliRunner().invoke(main, ["defs", "rm", "played"])
+    assert removed.exit_code == 0
+    assert "removed played" in removed.output
+
+
+def test_defs_add_reports_an_invalid_definition(tmp_settings: Settings, tmp_path: Path) -> None:
+    _mini_artifact(tmp_settings)
+    spec = tmp_path / "bad.json"
+    spec.write_text(
+        '{"name": "bad_one", "entity": "player_game", "signal": "rule", '
+        '"params": {"rules": [{"attr": "nonesuch", "op": ">=", "value": 1}]}}'
+    )
+    result = CliRunner().invoke(main, ["defs", "add", str(spec)])
+    assert result.exit_code != 0
+    assert "nonesuch" in result.output
+
+
+def test_defs_show_reports_an_unknown_name(tmp_settings: Settings) -> None:
+    _mini_artifact(tmp_settings)
+    result = CliRunner().invoke(main, ["defs", "show", "nonesuch"])
+    assert result.exit_code != 0
+    assert "no definition named" in result.output
+
+
+def test_defs_propose_says_when_something_is_not_computable(tmp_settings: Settings) -> None:
+    _mini_artifact(tmp_settings)
+    result = CliRunner().invoke(main, ["defs", "propose", "pro bowler"])
+    assert result.exit_code == 0, result.output
+    assert "not computable" in result.output
+
+
+def test_defs_without_a_database(tmp_settings: Settings) -> None:
+    result = CliRunner().invoke(main, ["defs", "list"])
+    assert result.exit_code != 0
+    assert "no database" in result.output
