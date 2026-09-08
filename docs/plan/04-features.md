@@ -52,7 +52,7 @@ hand-written catalog entries, which is broad but cannot fail interestingly.
 - [x] **4a — foundations.** _(done 2026-09-07)_ `tests/fixtures/exits.yaml`, `entities.py`,
       `catalog.py` machinery, `xwalk.py`. Green: crosswalk ≥ 99%, namespace and
       lift consistency, catalog well-formedness and completeness.
-- [ ] **4b — the team side.** `game_ctx`, `team_game`, `team_season`. Three of
+- [x] **4b — the team side.** _(done 2026-09-07)_ `game_ctx`, `team_game`, `team_season`. Three of
       the six entities, no dependency on participation or the crosswalk. Settles
       the `spread_line` sign question. Green: per-season counts, era-neutral
       attributes, spot checks.
@@ -78,8 +78,9 @@ Each feature module exposes `build(conn, settings) -> None` and runs
 `CREATE OR REPLACE TABLE <name> AS <sql>`. SQL lives as readable strings, one
 CTE per concept, parameterized only by settings constants.
 
-**Build order:** `xwalk → game_ctx → team_game → team_season → player_play →
-player_season → player_game`, then `coverage.build`. `player_season` is computed
+**Build order:** `season_status` (from `coverage.build_season_status`, since
+`game_ctx` reads it) → `xwalk → game_ctx → team_game → team_season →
+player_play → player_season → player_game`, then `coverage.build`. `player_season` is computed
 from raw tables only, so `player_game` can join it for prior-season attributes.
 
 ## Conventions
@@ -90,6 +91,12 @@ from raw tables only, so `player_game` can join it for prior-season attributes.
   it, never 0. `pp_*` are NULL before 2016.
 - Two rows for the same (player, game) in `snap_counts` (rare PFR duplicates):
   keep the row with the larger `snaps_total`.
+- **Every team column read from a non-`pbp` source must go through
+  `features.team_abbr.sql()`** (added 2026-09-07). `pbp` and `player_stats`
+  use current franchise codes; `schedules`, `snap_counts`, `injuries`,
+  `participation`, `teams` and `rosters_weekly` do not. Mixing them matches
+  nothing rather than erroring — it zeroed every Oakland, San Diego and
+  St. Louis offensive stat before it was caught.
 
 ## `player_id_xwalk`
 
@@ -131,7 +138,7 @@ From `schedules` (season ≥ floor) plus `pbp` aggregates.
 | `total` | int | combined points |
 | `overtime` | bool | |
 | `is_final` | bool | scores present |
-| `spread_line` | float | upstream home-team line — **verify sign on a known game and state it in the description** |
+| `spread_line` | float | upstream home-team line. **Verified 2026-09-07: positive means the HOME team is favoured** — the negation of the conventional spread |
 | `total_line` | float | |
 | `div_game` | bool | |
 | `roof, surface` | str | |

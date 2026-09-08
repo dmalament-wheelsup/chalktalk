@@ -87,7 +87,9 @@ class UnknownAttribute(Exception):
         super().__init__(f"unknown attribute {ref!r}{hint}")
 
 
-def _attrs(*rows: tuple[str, AttrType, str, str], entity: str) -> dict[tuple[str, str], Attribute]:
+def _attrs(
+    entity: str, rows: list[tuple[str, AttrType, str, str]]
+) -> dict[tuple[str, str], Attribute]:
     return {
         (entity, name): Attribute(entity, name, type_, family, description)
         for name, type_, family, description in rows
@@ -96,9 +98,342 @@ def _attrs(*rows: tuple[str, AttrType, str, str], entity: str) -> dict[tuple[str
 
 ATTRIBUTES: dict[tuple[str, str], Attribute] = {}
 
-# Entity tables are documented here as each lands (4b: game/team_game/
-# team_season; 4c: player_season; 4d: player_game). `player_id_xwalk` and
-# `player_play` are internal helpers, not part of the attribute surface.
+# Entity tables are documented as each lands (4b: game/team_game/team_season;
+# 4c: player_season; 4d: player_game). `player_id_xwalk` and `player_play` are
+# internal helpers, not part of the attribute surface.
+
+ATTRIBUTES.update(
+    _attrs(
+        "game",
+        [
+            ("game_id", "str", "identity", "nflverse game id, YYYY_WW_AWAY_HOME."),
+            ("season", "int", "identity", "Season the game belongs to."),
+            (
+                "week",
+                "int",
+                "identity",
+                "Week number. Postseason weeks continue the count and moved with the era "
+                "(playoffs are 18-21 through 2020, 19-22 from 2021), so test game_type, "
+                "never a week number.",
+            ),
+            ("game_type", "str", "context", "REG, WC, DIV, CON or SB."),
+            ("is_postseason", "bool", "context", "game_type is not REG."),
+            (
+                "reg_weeks",
+                "int",
+                "context",
+                "Number of regular-season weeks in this season: 17 through 2020, 18 from "
+                "2021. Read from the schedule, never hard-coded.",
+            ),
+            (
+                "is_final_reg_week",
+                "bool",
+                "context",
+                "A regular-season game in the season's last week - week 17 through 2020, "
+                "week 18 from 2021. This is the era-neutral 'rest week', when a team with "
+                "its seed settled may sit its starters.",
+            ),
+            (
+                "weeks_remaining_reg",
+                "int",
+                "context",
+                "Regular-season weeks after this one. NULL in the postseason.",
+            ),
+            ("gameday", "date", "context", "Date the game was played."),
+            ("weekday", "str", "context", "Sunday, Monday, Thursday, Friday or Saturday."),
+            ("gametime", "str", "context", "Scheduled kickoff, 'HH:MM' Eastern."),
+            (
+                "kickoff_hour",
+                "int",
+                "context",
+                "Kickoff hour Eastern, 0-23. 20 or later is a primetime window.",
+            ),
+            ("home_team", "str", "identity", "Home team abbreviation."),
+            ("away_team", "str", "identity", "Away team abbreviation."),
+            ("home_score", "int", "result", "Home points. NULL until the game is final."),
+            ("away_score", "int", "result", "Away points. NULL until the game is final."),
+            (
+                "result",
+                "int",
+                "result",
+                "home_score - away_score. Positive means the home team won.",
+            ),
+            ("margin_abs", "int", "result", "Absolute points margin, regardless of who won."),
+            ("total", "int", "result", "Combined points scored by both teams."),
+            ("overtime", "bool", "result", "The game went to overtime."),
+            (
+                "is_final",
+                "bool",
+                "result",
+                "The game has been played. Scheduled but unplayed games are in this table too.",
+            ),
+            (
+                "spread_line",
+                "float",
+                "betting",
+                "Closing spread, home-relative: POSITIVE means the home team was favoured by "
+                "that many points. This is the negation of the conventional point spread. "
+                "Use team_game.spread for a team-relative reading.",
+            ),
+            ("total_line", "float", "betting", "Closing over/under on combined points."),
+            ("div_game", "bool", "context", "The two teams share a division."),
+            ("roof", "str", "weather", "dome, outdoors, closed or open."),
+            ("surface", "str", "weather", "Playing surface, e.g. grass or fieldturf."),
+            ("temp", "int", "weather", "Kickoff temperature in Fahrenheit. NULL indoors."),
+            ("wind", "int", "weather", "Wind speed in mph. NULL indoors."),
+            ("home_rest", "int", "context", "Days since the home team's previous game."),
+            ("away_rest", "int", "context", "Days since the away team's previous game."),
+            (
+                "home_qb_id",
+                "str",
+                "identity",
+                "gsis_id of the home team's listed starting quarterback.",
+            ),
+            (
+                "home_qb_name",
+                "str",
+                "identity",
+                "Name of the home team's listed starting quarterback.",
+            ),
+            (
+                "away_qb_id",
+                "str",
+                "identity",
+                "gsis_id of the away team's listed starting quarterback.",
+            ),
+            (
+                "away_qb_name",
+                "str",
+                "identity",
+                "Name of the away team's listed starting quarterback.",
+            ),
+            ("home_coach", "str", "identity", "Home head coach."),
+            ("away_coach", "str", "identity", "Away head coach."),
+            ("referee", "str", "identity", "Referee."),
+            ("stadium", "str", "context", "Stadium name."),
+            (
+                "plays_total",
+                "int",
+                "situation",
+                "Plays with a real play_type (pass, run, punt, field goal, kickoff, extra "
+                "point, kneel, spike). Excludes penalties that wiped out the play.",
+            ),
+            ("pass_plays", "int", "situation", "Plays with play_type = pass, both teams."),
+            ("rush_plays", "int", "situation", "Plays with play_type = run, both teams."),
+        ],
+    )
+)
+
+ATTRIBUTES.update(
+    _attrs(
+        "team_game",
+        [
+            ("game_id", "str", "identity", "nflverse game id."),
+            ("season", "int", "identity", "Season the game belongs to."),
+            (
+                "week",
+                "int",
+                "identity",
+                "Week number. Test game_type, not a week number, for the postseason.",
+            ),
+            ("game_type", "str", "context", "REG, WC, DIV, CON or SB."),
+            ("is_postseason", "bool", "context", "game_type is not REG."),
+            ("team", "str", "identity", "The team this row is about."),
+            ("opponent", "str", "identity", "The other team."),
+            ("home", "bool", "context", "This team was at home."),
+            ("is_final", "bool", "result", "The game has been played."),
+            ("points_for", "int", "result", "Points this team scored."),
+            ("points_against", "int", "result", "Points this team allowed."),
+            (
+                "margin",
+                "int",
+                "result",
+                "points_for - points_against. Negative means this team lost.",
+            ),
+            ("won", "bool", "result", "This team won. NULL until the game is final."),
+            ("lost", "bool", "result", "This team lost. NULL until the game is final."),
+            ("tied", "bool", "result", "The game was tied. NULL until the game is final."),
+            ("rest_days", "int", "context", "Days since this team's previous game."),
+            ("opp_rest_days", "int", "context", "Days since the opponent's previous game."),
+            (
+                "games_played_before",
+                "int",
+                "context",
+                "Regular-season games this team had already played this season, 0 in week 1. "
+                "Counts games, not weeks, so byes are handled. Era-neutral progress.",
+            ),
+            (
+                "season_progress",
+                "float",
+                "context",
+                "games_played_before divided by the season's games per team, 0 to 1. Compare "
+                "this rather than week numbers across the 16- and 17-game eras.",
+            ),
+            (
+                "spread",
+                "float",
+                "betting",
+                "Closing spread from this team's point of view: NEGATIVE means this team was "
+                "favoured, the conventional reading. NULL when there was no line.",
+            ),
+            ("favorite", "bool", "betting", "This team was favoured. NULL when there was no line."),
+            (
+                "covered",
+                "bool",
+                "betting",
+                "margin + spread > 0, i.e. this team beat the closing spread.",
+            ),
+            ("div_game", "bool", "context", "A divisional matchup."),
+            (
+                "starting_qb_id",
+                "str",
+                "identity",
+                "gsis_id of this team's listed starting quarterback, from the schedule.",
+            ),
+            (
+                "starting_qb_name",
+                "str",
+                "identity",
+                "Name of this team's listed starting quarterback.",
+            ),
+            ("off_plays", "int", "situation", "Offensive plays run: passes and designed runs."),
+            (
+                "pass_attempts",
+                "int",
+                "situation",
+                "Offensive plays with play_type = pass, sacks included.",
+            ),
+            ("rush_attempts", "int", "situation", "Offensive plays with play_type = run."),
+            ("pass_rate", "float", "situation", "pass_attempts / off_plays."),
+            ("off_epa", "float", "epa", "Total expected points added on offence."),
+            (
+                "off_epa_per_play",
+                "float",
+                "epa",
+                "Mean EPA per offensive play. The usual measure of offensive quality.",
+            ),
+            ("off_success_rate", "float", "epa", "Share of offensive plays with positive EPA."),
+            ("off_yards", "int", "production", "Yards gained on passes and runs."),
+            ("turnovers", "int", "result", "Interceptions thrown plus fumbles lost."),
+            ("sacks_taken", "int", "result", "Times this team's quarterback was sacked."),
+            (
+                "fourth_downs",
+                "int",
+                "situation",
+                "Fourth-down plays, kneels excluded. Punts and field goals are included, so "
+                "this is the denominator for go-for-it rate.",
+            ),
+            (
+                "fourth_down_go",
+                "int",
+                "situation",
+                "Fourth downs where the team ran a play instead of kicking.",
+            ),
+            (
+                "fourth_down_go_rate",
+                "float",
+                "situation",
+                "fourth_down_go / fourth_downs. The usual measure of fourth-down aggression.",
+            ),
+            ("def_plays", "int", "situation", "Offensive plays faced by this defence."),
+            (
+                "def_epa_per_play",
+                "float",
+                "epa",
+                "Mean EPA allowed per play. Lower is better, unlike the offensive figure.",
+            ),
+            (
+                "def_success_rate",
+                "float",
+                "epa",
+                "Share of plays faced that had positive EPA for the offence.",
+            ),
+            ("sacks", "int", "result", "Sacks recorded by this defence."),
+            ("takeaways", "int", "result", "Interceptions plus fumble recoveries by this defence."),
+            (
+                "max_lead",
+                "int",
+                "result",
+                "Largest lead this team held at any snap. Negative if it never led.",
+            ),
+            (
+                "max_deficit",
+                "int",
+                "result",
+                "Largest deficit this team faced at any snap. Positive if it never trailed.",
+            ),
+            ("plays_leading", "int", "situation", "Snaps played while this team was ahead."),
+            ("plays_trailing", "int", "situation", "Snaps played while this team was behind."),
+            ("plays_tied", "int", "situation", "Snaps played while the score was level."),
+        ],
+    )
+)
+
+ATTRIBUTES.update(
+    _attrs(
+        "team_season",
+        [
+            ("season", "int", "identity", "Season."),
+            ("team", "str", "identity", "Team abbreviation."),
+            ("games", "int", "context", "Regular-season games played."),
+            (
+                "games_per_team",
+                "int",
+                "context",
+                "Games each team plays in this season: 16 through 2020, 17 from 2021. Read "
+                "from the schedule, never hard-coded.",
+            ),
+            ("wins", "int", "result", "Regular-season wins."),
+            ("losses", "int", "result", "Regular-season losses."),
+            ("ties", "int", "result", "Regular-season ties."),
+            (
+                "win_pct",
+                "float",
+                "result",
+                "(wins + half the ties) / games. Comparable across the 16- and 17-game eras, "
+                "unlike a win total.",
+            ),
+            ("points_for", "int", "result", "Regular-season points scored."),
+            ("points_against", "int", "result", "Regular-season points allowed."),
+            ("point_diff", "int", "result", "points_for - points_against."),
+            ("points_for_per_game", "float", "result", "Points scored per regular-season game."),
+            (
+                "points_against_per_game",
+                "float",
+                "result",
+                "Points allowed per regular-season game.",
+            ),
+            (
+                "made_playoffs",
+                "bool",
+                "result",
+                "This team played at least one postseason game. Derived from the schedule, "
+                "so it is right for every playoff format.",
+            ),
+            ("playoff_wins", "int", "result", "Postseason wins, 0 to 4."),
+            (
+                "off_epa_per_play",
+                "float",
+                "epa",
+                "Regular-season mean EPA per offensive play, weighted by plays.",
+            ),
+            (
+                "def_epa_per_play",
+                "float",
+                "epa",
+                "Regular-season mean EPA allowed per play, weighted by plays. Lower is better.",
+            ),
+            (
+                "pass_rate",
+                "float",
+                "situation",
+                "Share of regular-season offensive plays that were passes.",
+            ),
+            ("division", "str", "identity", "Division, e.g. AFC North."),
+            ("conference", "str", "identity", "AFC or NFC."),
+        ],
+    )
+)
 
 
 #: Curated descriptions for the `pbp` columns worth naming. Everything else in

@@ -20,7 +20,7 @@ from dataclasses import dataclass
 import duckdb
 
 from chalktalk.config import Settings
-from chalktalk.features import xwalk
+from chalktalk.features import game_ctx, team_game, team_season, xwalk
 
 log = logging.getLogger(__name__)
 
@@ -32,10 +32,13 @@ class Builder:
     requires: tuple[str, ...]
 
 
-#: In dependency order. Later stages of phase 4 append: game_ctx, team_game,
-#: team_season (4b), player_play, player_season (4c), player_game (4d).
+#: In dependency order. Later stages of phase 4 append: player_play and
+#: player_season (4c), player_game (4d).
 BUILDERS: list[Builder] = [
     Builder("player_id_xwalk", xwalk.build, ("players", "rosters_weekly", "snap_counts")),
+    Builder("game_ctx", game_ctx.build, ("schedules", "pbp", "season_status")),
+    Builder("team_game", team_game.build, ("game_ctx", "pbp", "season_status")),
+    Builder("team_season", team_season.build, ("team_game", "teams", "season_status")),
 ]
 
 

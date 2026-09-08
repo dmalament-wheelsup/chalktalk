@@ -152,22 +152,31 @@ def test_no_entry_names_a_column_that_does_not_exist(conn: duckdb.DuckDBPyConnec
     assert catalog.orphaned(conn) == {}
 
 
+def _create_documented_table(conn: duckdb.DuckDBPyConnection, entity: str) -> None:
+    """A table whose columns are exactly what the catalog documents for ``entity``."""
+    columns = ", ".join(f'"{a.name}" INTEGER' for a in attributes_for(entity, conn))
+    conn.execute(f'CREATE TABLE "{ENTITIES[entity].table}" ({columns})')
+
+
+def test_a_fully_documented_table_reports_nothing(conn: duckdb.DuckDBPyConnection) -> None:
+    _create_documented_table(conn, "game")
+    assert catalog.undocumented(conn) == {}
+    assert catalog.orphaned(conn) == {}
+
+
 def test_the_completeness_check_actually_fails_on_an_undocumented_column(
     conn: duckdb.DuckDBPyConnection,
 ) -> None:
     """Guard against the check quietly staying vacuous as tables land."""
-    conn.execute("CREATE TABLE game_ctx (game_id VARCHAR, undocumented_thing INTEGER)")
-    missing = catalog.undocumented(conn)
-    assert missing == {"game": ["game_id", "undocumented_thing"]}
+    _create_documented_table(conn, "game")
+    conn.execute("ALTER TABLE game_ctx ADD COLUMN undocumented_thing INTEGER")
+    assert catalog.undocumented(conn) == {"game": ["undocumented_thing"]}
 
 
 def test_the_orphan_check_actually_fails_on_a_stale_entry(
     conn: duckdb.DuckDBPyConnection,
 ) -> None:
-    conn.execute("CREATE TABLE game_ctx (game_id VARCHAR)")
-    catalog.ATTRIBUTES[("game", "game_id")] = Attribute(
-        "game", "game_id", "str", "identity", "nflverse game id."
-    )
+    _create_documented_table(conn, "game")
     catalog.ATTRIBUTES[("game", "typoed")] = Attribute(
         "game", "typoed", "str", "identity", "not a real column."
     )
@@ -175,7 +184,6 @@ def test_the_orphan_check_actually_fails_on_a_stale_entry(
         assert catalog.orphaned(conn) == {"game": ["typoed"]}
         assert catalog.undocumented(conn) == {}
     finally:
-        del catalog.ATTRIBUTES[("game", "game_id")]
         del catalog.ATTRIBUTES[("game", "typoed")]
 
 

@@ -467,6 +467,52 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   `jersey_number`/`draft_number` rather than assume a number. The lossless test
   fails on any coercion to text that is *not* in `type_conflicts`.
 
+- **2026-09-07 · phase 4b · nflverse uses two team-abbreviation conventions, and
+  mixing them fails silently.** `pbp` and `player_stats` always use the
+  **current** franchise code (32 values, no exceptions). `schedules`,
+  `snap_counts`, `injuries`, `participation` and `teams` use the code that was
+  correct *at the time* — OAK through 2019, SD through 2016, STL through 2015 —
+  and `rosters_weekly` adds PFR-style spellings of its own (`SL`, `ARZ`, `BLT`,
+  `CLV`, `HST`). `teams` carries both `LA` and `LAR` for the Rams.
+
+  Joining across the two does not error, it matches nothing: **every Oakland,
+  San Diego and St. Louis team-game had zero offensive plays, zero EPA and zero
+  yards** until this was found, because `team_game.team` said OAK and
+  `pbp.posteam` said LV. 414 of 7,668 team-game rows were affected.
+
+  `features/team_abbr.py` now holds the nine aliases and the 32 canonical codes,
+  and every builder normalizes a team column read from a non-`pbp` source. The
+  canonical spelling is the current one. `teams` is de-duplicated on the way in
+  so the `LA`/`LAR` pair cannot fan out the `team_season` join. A data test
+  asserts no derived table contains a non-canonical code, and another asserts no
+  completed team-game has zero offensive plays. **Phases 4c and 4d must
+  normalize `snap_counts.team`, `injuries.team`, `rosters_weekly.team` and
+  `participation.possession_team` the same way** — the plan does not mention
+  this anywhere and it silently corrupts any join that skips it.
+
+- **2026-09-07 · phase 4b · `spread_line` is the negation of the conventional
+  spread.** Verified as the plan requires. nflverse states it home-relative and
+  **positive means the home team is favoured**: Super Bowl LVIII (home KC, away
+  SF) is `-1.5` with SF favoured, and across 3,407 regular-season games
+  home-favoured games are won by the home team 67.3% of the time (mean margin
+  +5.77) against 34.5% when away-favoured. `team_game.spread` therefore negates
+  it for the home row, so that negative means *this* team is favoured — the
+  conventional reading. Recorded in the catalog description of both columns.
+  Two tests defend the sign: favourites win 60-75% of the time, and the spread
+  is covered 45-55% of the time. A flipped sign breaks both.
+
+- **2026-09-07 · phase 4b · `season_status` is split out of `coverage.build`.**
+  `game_ctx.reg_weeks` reads `season_status`, but coverage runs *after* features
+  — a cycle. `coverage.build_season_status()` computes it from `schedules`
+  alone and runs before the feature layer; column coverage still runs last, as
+  the plan requires, and recomputes season_status harmlessly.
+
+- **2026-09-07 · phase 4b · `team_game.is_final` added.** Not in the plan's
+  column list, but `won`/`lost`/`tied` are already NULL until a game is played
+  and `team_season` needs to filter on it. Scheduled-but-unplayed games are in
+  these tables by design (`schedules` carries next season), so the flag is the
+  honest way to exclude them.
+
 - **2026-09-07 · phase 4a · `snap_counts.position` has 48 values, not 19.** The
   plan's value set (`C CB DE DT FB FS G K LB LS NT P QB RB SS T TE WR`) is the
   common head of a longer tail. PFR also emits `S DB OL DL HB OT OG OLB ILB MLB`

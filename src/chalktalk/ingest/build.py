@@ -405,6 +405,10 @@ def build(
                     conn, d, None, settings, warnings
                 )
 
+        # season_status describes the shape of each season and is an *input* to
+        # the feature layer (game_ctx needs each season's regular-season length,
+        # D24). Column coverage describes the feature layer and so runs after it.
+        coverage.build_season_status(conn, settings)
         if not skip_features:
             features.build_all(conn, settings)
         coverage.build(conn, settings)

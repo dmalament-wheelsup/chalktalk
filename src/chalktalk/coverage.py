@@ -268,6 +268,22 @@ def _scan_flat(
     ]
 
 
+def build_season_status(conn: duckdb.DuckDBPyConnection, settings: Settings) -> None:
+    """Season structure and progress, from `schedules` alone.
+
+    Split out of :func:`build` because the feature layer *reads* it — `game_ctx`
+    needs each season's regular-season length to know which week is the final
+    one (D24) — while column coverage *describes* the feature layer and must run
+    after it. This half depends on no derived table, so it runs first.
+    """
+    conn.execute(_STATUS_DDL)
+    if not _table_exists(conn, "schedules"):
+        # A partial build (`--only pbp`). Guess nothing; nothing is queryable.
+        log.warning("coverage: no schedules table, so season_status is empty")
+        return
+    conn.execute(f"INSERT INTO season_status {_STATUS_SQL}", [settings.season_floor])
+
+
 def build(conn: duckdb.DuckDBPyConnection, settings: Settings) -> None:
     """Regenerate the three coverage tables from whatever is in the database.
 
@@ -277,7 +293,6 @@ def build(conn: duckdb.DuckDBPyConnection, settings: Settings) -> None:
     floor = settings.season_floor - settings.baseline_lookback
     conn.execute(_COLUMNS_DDL)
     conn.execute(_SEASONS_DDL)
-    conn.execute(_STATUS_DDL)
 
     for table in _data_tables(conn):
         columns = _columns(conn, table)
@@ -298,12 +313,7 @@ def build(conn: duckdb.DuckDBPyConnection, settings: Settings) -> None:
                 _scan_flat(conn, table, columns),
             )
 
-    if _table_exists(conn, "schedules"):
-        conn.execute(f"INSERT INTO season_status {_STATUS_SQL}", [settings.season_floor])
-    else:
-        # A partial build (`--only pbp`). season_status stays empty rather than
-        # guessing; nothing is queryable until a build includes schedules.
-        log.warning("coverage: no schedules table, so season_status is empty")
+    build_season_status(conn, settings)
 
     covered = conn.execute("SELECT count(*) FROM coverage_columns").fetchone()[0]
     log.info("coverage: %s columns across %s tables", covered, len(_data_tables(conn)))
