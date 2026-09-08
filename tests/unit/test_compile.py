@@ -124,7 +124,15 @@ def test_a_lifted_term_reaches_the_right_season(build, mini_conn, defined) -> No
         entity="player_season",
         basis="prior_season",
     )
-    compiled = build({"where": [{"term": "heavy_usage"}], "group_by": ["season"]})
+    # A prior-season term cannot answer the mini league's first season, so this
+    # opts into partial coverage the way the shipped fixture plans do.
+    compiled = build(
+        {
+            "where": [{"term": "heavy_usage"}],
+            "group_by": ["season"],
+            "allow_partial_coverage": True,
+        }
+    )
     assert "psp" in compiled.sql, "the prior-season join must be used"
     _run(mini_conn, compiled)
 
@@ -136,7 +144,12 @@ def test_a_basis_in_the_plan_overrides_the_definitions(build, mini_conn, defined
         entity="player_season",
     )
     current = build({"where": [{"term": "heavy_usage"}]})
-    prior = build({"where": [{"term": "heavy_usage", "basis": "prior_season"}]})
+    prior = build(
+        {
+            "where": [{"term": "heavy_usage", "basis": "prior_season"}],
+            "allow_partial_coverage": True,
+        }
+    )
     assert "psc" in current.sql
     assert "psp" in prior.sql
 

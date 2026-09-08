@@ -38,6 +38,12 @@ class Join:
     table: str
     alias: str
     on: str  # references the aliases, not the table names
+    #: Seasons of lag this join reads at. +1 means a season N row needs season
+    #: N-1 data, so the join can only answer for seasons one later than its
+    #: columns are populated for. Without this the gate reports a season as
+    #: covered when the row it joins to cannot exist — the first season of the
+    #: database has no prior season, and the last has no next one.
+    season_lag: int = 0
 
 
 @dataclass(frozen=True)
@@ -69,7 +75,14 @@ ENTITIES: dict[str, EntitySpec] = {
         "ts",
         ("season", "team"),
         ("season", "team"),
-        {"prior": Join("team_season", "tsp", "tsp.season = ts.season - 1 AND tsp.team = ts.team")},
+        {
+            "prior": Join(
+                "team_season",
+                "tsp",
+                "tsp.season = ts.season - 1 AND tsp.team = ts.team",
+                season_lag=1,
+            )
+        },
     ),
     "player_game": EntitySpec(
         "player_game",
@@ -86,6 +99,7 @@ ENTITIES: dict[str, EntitySpec] = {
                 "player_season",
                 "psp",
                 "psp.player_key = pg.player_key AND psp.season = pg.season - 1",
+                season_lag=1,
             ),
             "game": Join("game_ctx", "g", "g.game_id = pg.game_id"),
             "team": Join("team_game", "tg", "tg.game_id = pg.game_id AND tg.team = pg.team"),
@@ -112,11 +126,13 @@ ENTITIES: dict[str, EntitySpec] = {
                 "player_season",
                 "psp",
                 "psp.player_key = ps.player_key AND psp.season = ps.season - 1",
+                season_lag=1,
             ),
             "next": Join(
                 "player_season",
                 "psn",
                 "psn.player_key = ps.player_key AND psn.season = ps.season + 1",
+                season_lag=-1,
             ),
             "team_season": Join(
                 "team_season", "ts", "ts.season = ps.season AND ts.team = ps.team_primary"
@@ -173,6 +189,21 @@ def namespaces(entity: str) -> dict[str, Join]:
 
 def can_lift(definition_entity: str, plan_entity: str) -> bool:
     return definition_entity == plan_entity or (definition_entity, plan_entity) in LIFTS
+
+
+def namespace_lag(entity: str, namespace: str | None) -> int:
+    """Seasons of lag a namespace reads at, in *query season* terms.
+
+    ``+1`` (the ``prior`` joins) means a season N row reads season N-1, so the
+    seasons that namespace can answer for are its columns' coverage shifted one
+    forward: with data from 2013 the earliest answerable season is 2014. ``-1``
+    (``player_season.next``) shifts the other way. The entity's own table and
+    every same-season join are 0.
+    """
+    if namespace is None or namespace == SELF:
+        return 0
+    join = ENTITIES[entity].namespaces.get(namespace)
+    return join.season_lag if join is not None else 0
 
 
 def lift_namespace(

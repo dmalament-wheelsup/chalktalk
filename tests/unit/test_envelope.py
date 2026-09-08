@@ -47,7 +47,12 @@ def test_the_english_line_says_when_a_term_looks_back(mini_query, defined) -> No
         entity="player_season",
         basis="prior_season",
     )
-    out = mini_query({"where": [{"term": "heavy_usage", "basis": "prior_season"}]})
+    out = mini_query(
+        {
+            "where": [{"term": "heavy_usage", "basis": "prior_season"}],
+            "allow_partial_coverage": True,
+        }
+    )
     assert "heavy_usage [prior season]" in out["english"]
 
 

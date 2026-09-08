@@ -236,6 +236,90 @@ def test_a_plan_inside_coverage_passes(mini_gate, defined) -> None:
     assert gate.excluded == []
 
 
+# ── 6b. season lag: a term read a season back cannot answer the first season ──
+
+
+HEAVY = {"rules": [{"attr": "snap_share_mean", "op": ">=", "value": 0.9}]}
+
+
+def _heavy(defined, basis="prior_season"):
+    defined("heavy_usage", HEAVY, entity="player_season", basis=basis)
+
+
+def test_a_prior_season_term_cannot_answer_the_first_season(mini_gate, defined) -> None:
+    """The bug this guards: 2013 reported as covered when no 2012 row exists.
+
+    The mini league starts in 2022, so a term measured on the previous season
+    can only speak about 2023. Reporting 2022 as covered would make a season
+    with no possible match read as a season with no matches.
+    """
+    _heavy(defined)
+    _, gate = mini_gate({"where": [{"term": "heavy_usage"}], "allow_partial_coverage": True})
+    assert gate.ok, gate.error
+    assert gate.excluded == [2022]
+    assert (gate.seasons.first, gate.seasons.last) == (2023, 2023)
+
+
+def test_a_prior_season_gap_is_refused_by_default(mini_gate, defined) -> None:
+    _heavy(defined)
+    _, gate = mini_gate({"where": [{"term": "heavy_usage"}]})
+    assert gate.error.error == "coverage_gap"
+    assert gate.error.model_dump()["covered"] == [2023, 2023]
+
+
+def test_the_lag_is_explained_not_reported_as_missing_data(mini_gate, defined) -> None:
+    """ "No data" would send the reader hunting for a hole that is not there."""
+    _heavy(defined)
+    _, gate = mini_gate({"where": [{"term": "heavy_usage"}], "allow_partial_coverage": True})
+    excluded = [w for w in gate.warnings if "excluded" in w]
+    assert excluded, gate.warnings
+    assert "no data for the attributes used" not in excluded[0]
+    assert "season back" in excluded[0]
+
+
+def test_a_lagged_ref_reports_the_seasons_it_can_answer_for(mini_gate, defined) -> None:
+    """`limiting` must be in query seasons, not data seasons."""
+    _heavy(defined)
+    _, gate = mini_gate({"where": [{"term": "heavy_usage"}]})
+    rows = gate.error.model_dump()["limiting"]
+    lagged = [r for r in rows if r.get("lag")]
+    assert lagged, rows
+    assert lagged[0]["first"] == lagged[0]["data_first"] + 1
+
+
+def test_the_plans_own_basis_drives_the_lag(mini_gate, defined) -> None:
+    """A current-season definition asked for on a prior basis lags all the same."""
+    _heavy(defined, basis=None)
+    _, current = mini_gate({"where": [{"term": "heavy_usage"}]})
+    assert current.ok, current.error
+    assert current.excluded == []
+
+    _, prior = mini_gate(
+        {
+            "where": [{"term": "heavy_usage", "basis": "prior_season"}],
+            "allow_partial_coverage": True,
+        }
+    )
+    assert prior.ok, prior.error
+    assert prior.excluded == [2022]
+
+
+def test_an_unlagged_term_still_answers_the_first_season(mini_gate, defined) -> None:
+    """The shift must apply to the lagged refs only, not to the whole plan."""
+    defined("played", PLAYED)
+    _, gate = mini_gate({"where": [{"term": "played"}]})
+    assert gate.ok, gate.error
+    assert gate.excluded == []
+    assert gate.seasons.first == 2022
+
+
+def test_a_prior_namespace_attribute_lags_too(mini_gate) -> None:
+    """Not only terms: `prior.` in the plan reads a season back as well."""
+    _, gate = mini_gate({"where": [{"attr": "prior.snap_share_mean", "op": ">=", "value": 0.5}]})
+    assert gate.error.error == "coverage_gap"
+    assert gate.error.model_dump()["covered"] == [2023, 2023]
+
+
 # ── 7. warnings, never errors ─────────────────────────────────────────────────
 
 

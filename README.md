@@ -109,13 +109,20 @@ For Claude Desktop, the equivalent in `claude_desktop_config.json`:
 {
   "mcpServers": {
     "chalktalk": {
-      "command": "uv",
+      "command": "/absolute/path/to/uv",
       "args": ["--directory", "/path/to/chalktalk", "run", "chalktalk", "serve"],
       "env": { "CHALKTALK_HOME": "/Users/you/.chalktalk" }
     }
   }
 }
 ```
+
+Give `command` the **absolute** path to `uv` — `which uv` will tell you, commonly
+`~/.local/bin/uv`. A bare `"uv"` works for `claude mcp add`, which inherits your
+shell, but Claude Desktop is launched by the OS and does not get your `PATH`; it
+fails to start the server with an error that does not mention `PATH`. Quit
+Desktop completely and reopen it after editing the file — closing the window is
+not enough.
 
 `CHALKTALK_HOME` defaults to `~/.chalktalk` and holds the database, your
 definitions and the audit log. Pass it explicitly if you keep them elsewhere.

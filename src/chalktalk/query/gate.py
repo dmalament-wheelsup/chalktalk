@@ -26,11 +26,30 @@ from chalktalk.coverage import Coverage, SeasonRange
 from chalktalk.definitions.propose import propose
 from chalktalk.definitions.signals import SIGNALS, AttrRef, ValidationCtx
 from chalktalk.definitions.spec import Definition
-from chalktalk.entities import ENTITIES, can_lift
+from chalktalk.entities import ENTITIES, EntityMismatch, can_lift, lift_namespace, namespace_lag
 from chalktalk.features.catalog import UnknownAttribute, attributes_for, resolve
 from chalktalk.query.envelope import ErrorEnvelope
 from chalktalk.query.plan import ANY_GAME_TYPE, GAME_TYPES, QueryPlan, TermRef
 from chalktalk.spec_types import SELF_NS
+
+
+@dataclass(frozen=True, order=True)
+class CoverageRef:
+    """A column the plan needs, and the season lag it is read at.
+
+    ``lag`` is what makes a ``prior_season`` term honest: the column's coverage
+    describes the seasons its *data* exists for, and reading it a season back
+    shifts the seasons it can *answer* for by the same amount.
+    """
+
+    table: str
+    column: str
+    lag: int = 0
+
+    @property
+    def ref(self) -> str:
+        return f"{self.table}.{self.column}"
+
 
 #: Entities whose own table carries game_type.
 GAME_TYPED = {"game", "team_game", "player_game"}
@@ -124,8 +143,8 @@ def check(
             )
 
     # 6. coverage_gap
-    refs = _coverage_refs(plan, [store.get(t.term) for t in wanted], store, conn)
-    covered = coverage.intersect(refs)
+    refs = _coverage_refs(plan, wanted, store, conn)
+    covered = _intersect(coverage, refs)
     queryable = coverage.queryable_seasons()
     if not queryable:
         return _fail("coverage_gap", "no season in this database is queryable")
@@ -173,16 +192,11 @@ def check(
                 excluded=excluded,
                 limiting=_limiting(refs, coverage),
             )
-        warnings.append(
-            f"seasons {excluded[0]}-{excluded[-1]} excluded: no data for the attributes used"
-        )
+        span = str(excluded[0]) if len(excluded) == 1 else f"{excluded[0]}-{excluded[-1]}"
+        warnings.append(f"seasons {span} excluded: {_why_excluded(refs, coverage, first, last)}")
 
     # 7. warnings, never errors
-    warnings.extend(
-        _soft_warnings(
-            plan, [store.get(t.term) for t in wanted], store, coverage, conn, first, last
-        )
-    )
+    warnings.extend(_soft_warnings(plan, wanted, store, coverage, conn, first, last))
 
     return GateResult(
         ok=True,
@@ -289,24 +303,30 @@ def _ctx(entity: str, store, coverage, settings, conn) -> ValidationCtx:
     )
 
 
-def _coverage_refs(plan, used, store, conn) -> list[tuple[str, str]]:
-    """(table, column) for everything the plan touches, definitions included.
+def _coverage_refs(plan, wanted, store, conn) -> list[CoverageRef]:
+    """Every column the plan touches, definitions included, with its season lag.
 
-    ``used`` must be the plan's *own* terms, not every definition reached
-    transitively: `requires()` already recurses, and it deliberately stops at an
-    `any_of`, where one branch suffices. Passing the flattened list back in would
-    reinstate every branch as a hard requirement and refuse seasons the
-    definition can in fact answer.
+    ``wanted`` must be the plan's *own* term references, not every definition
+    reached transitively: `requires()` already recurses, and it deliberately
+    stops at an `any_of`, where one branch suffices. Passing the flattened list
+    back in would reinstate every branch as a hard requirement and refuse
+    seasons the definition can in fact answer.
+
+    Term references rather than definitions because the lag depends on the
+    *basis the plan asked for*, which overrides the definition's own default.
     """
-    refs: set[tuple[str, str]] = set()
+    refs: set[CoverageRef] = set()
 
     for ref in plan.attributes():
         namespace, _, name = ref.rpartition(".")
-        table = _table_for(plan.entity, namespace or SELF_NS)
+        namespace = namespace or SELF_NS
+        table = _table_for(plan.entity, namespace)
         if table:
-            refs.add((table, name))
+            refs.add(CoverageRef(table, name, namespace_lag(plan.entity, namespace)))
 
-    for definition in used:
+    for term in wanted:
+        definition = store.get(term.term)
+        basis = term.basis or definition.effective_basis
         signal = SIGNALS[definition.signal]
         ctx = _ctx(definition.entity, store, None, None, conn)
         try:
@@ -315,9 +335,41 @@ def _coverage_refs(plan, used, store, conn) -> list[tuple[str, str]]:
             continue
         for attr_ref in required:
             table = _table_for(definition.entity, attr_ref.namespace)
-            if table:
-                refs.add((table, attr_ref.name))
+            if not table:
+                continue
+            try:
+                target = lift_namespace(
+                    definition.entity, plan.entity, attr_ref.namespace, basis=basis
+                )
+            except EntityMismatch:  # already reported as entity_mismatch
+                continue
+            refs.add(CoverageRef(table, attr_ref.name, namespace_lag(plan.entity, target)))
     return sorted(refs)
+
+
+def _intersect(coverage: Coverage, refs: list[CoverageRef]) -> SeasonRange | None:
+    """The seasons every ref can answer for, each shifted by its own lag.
+
+    Refs are grouped by lag and intersected within the group before shifting,
+    so a `prior_season` term is measured against the seasons its data exists
+    for and then moved forward to the seasons it can speak about.
+    """
+    queryable = coverage.queryable_seasons()
+    if not queryable:
+        return None
+    first, last = queryable[0], queryable[-1]
+
+    by_lag: dict[int, list[tuple[str, str]]] = {}
+    for ref in refs:
+        by_lag.setdefault(ref.lag, []).append((ref.table, ref.column))
+
+    for lag, group in by_lag.items():
+        got = coverage.intersect(group)
+        if got is None:
+            return None
+        first = max(first, got.first + lag)
+        last = min(last, got.last + lag)
+    return SeasonRange(first, last) if first <= last else None
 
 
 def _table_for(entity: str, namespace: str) -> str | None:
@@ -328,25 +380,54 @@ def _table_for(entity: str, namespace: str) -> str | None:
     return join.table if join else None
 
 
-def _limiting(refs: list[tuple[str, str]], coverage: Coverage) -> list[dict[str, Any]]:
-    """Which references actually constrain the answer, worst first."""
+def _limiting(refs: list[CoverageRef], coverage: Coverage) -> list[dict[str, Any]]:
+    """Which references actually constrain the answer, worst first.
+
+    ``first``/``last`` are the seasons the ref can *answer* for, so a lagged ref
+    reports its data window shifted. Without that the caller is told a column
+    covers 2013 while the query it limits cannot run for 2013.
+    """
     rows = []
-    for table, column in refs:
-        found = coverage.column(table, column)
+    for ref in refs:
+        found = coverage.column(ref.table, ref.column)
         if found is None or not found.seasonal:
             continue
-        rows.append(
-            {
-                "ref": f"{table}.{column}",
-                "first": found.first_season,
-                "last": found.last_season,
-            }
-        )
+        row = {
+            "ref": ref.ref,
+            "first": None if found.first_season is None else found.first_season + ref.lag,
+            "last": None if found.last_season is None else found.last_season + ref.lag,
+        }
+        if ref.lag:
+            row["lag"] = ref.lag
+            row["data_first"], row["data_last"] = found.first_season, found.last_season
+            row["why"] = (
+                f"read {abs(ref.lag)} season{'s' if abs(ref.lag) > 1 else ''} "
+                f"{'back' if ref.lag > 0 else 'forward'}"
+            )
+        rows.append(row)
     rows.sort(key=lambda r: (r["first"] is not None, -(r["first"] or 0)))
     return rows
 
 
-def _soft_warnings(plan, used, store, coverage, conn, first: int, last: int) -> list[str]:
+def _why_excluded(refs: list[CoverageRef], coverage: Coverage, first: int, last: int) -> str:
+    """Name what actually pushed the range in, preferring a lagged ref.
+
+    A season dropped because a term reads a season back is not the same as one
+    dropped for missing data, and saying "no data" for it sends the reader
+    looking for a hole in the database that is not there.
+    """
+    for ref in _limiting(refs, coverage):
+        if ref.get("lag") and (ref["first"] == first or ref["last"] == last):
+            direction = "before" if ref["lag"] > 0 else "after"
+            return (
+                f"{ref['ref']} is {ref['why']}, and there is no season "
+                f"{direction} {ref['data_first'] if ref['lag'] > 0 else ref['data_last']} "
+                "in this database"
+            )
+    return "no data for the attributes used"
+
+
+def _soft_warnings(plan, wanted, store, coverage, conn, first: int, last: int) -> list[str]:
     warnings: list[str] = []
 
     if plan.game_types != ["REG"] and plan.entity not in (GAME_TYPED | GAME_TYPE_VIA_GAME):
@@ -359,7 +440,8 @@ def _soft_warnings(plan, used, store, coverage, conn, first: int, last: int) -> 
     if status is not None and status.in_progress:
         warnings.append(f"{last} is still in progress, so its numbers will change")
 
-    for definition in used:
+    for term in wanted:
+        definition = store.get(term.term)
         signal = SIGNALS[definition.signal]
         ctx = _ctx(definition.entity, store, coverage, None, conn)
         try:
@@ -375,10 +457,10 @@ def _soft_warnings(plan, used, store, coverage, conn, first: int, last: int) -> 
                     f"{table}.{attr_ref.name} has no data before then"
                 )
 
-    for table, column in _coverage_refs(plan, used, store, conn):
-        found = coverage.column(table, column)
+    for ref in _coverage_refs(plan, wanted, store, conn):
+        found = coverage.column(ref.table, ref.column)
         if found and found.has_gaps:
-            warnings.append(f"{table}.{column} has seasons with no data inside its range")
+            warnings.append(f"{ref.ref} has seasons with no data inside its range")
 
     return warnings
 

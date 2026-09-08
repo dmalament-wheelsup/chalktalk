@@ -106,7 +106,7 @@ the same machinery answers ten unrelated questions.
 | 3 | done | 2026-09-07 | 2eb48b7 | 4 amendments; 808 columns registered |
 | 4 | done | 2026-09-08 | d2f1725 | Gate A green; 241 attributes; staged 4a–4d |
 | 5 | done | 2026-09-08 | b66cf4b | 5 signals, store, propose; mini DB landed |
-| 6 | done | 2026-09-08 | 011a504 | gate + compiler + envelope; 10/10 plans compile |
+| 6 | done | 2026-09-08 | 011a504 | gate + compiler + envelope; 10/10 plans compile; season-lag amendment 2026-09-08 |
 | 7 | done | 2026-09-08 | b104b44 | Gate B: 19/21 exits, 10/10 plans on real data |
 | 8 | done | 2026-09-08 | 98cc1a8 | 11 tools, sql guard, audit log |
 | 9 | in progress | 2026-09-07 | | tiers + unit CI in place; fixtures and mini DB land with phases 4/7 |
@@ -819,6 +819,26 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   13 seasons of everything including `pbp` is ~59s warm and ~82s cold on a
   laptop; the artifact is 719 MB. 02-ingest.md's acceptance note is corrected.
 
+- **2026-09-08 · phase 6 · the gate did not honour the season lag of a
+  namespace, so the envelope over-claimed coverage.** The 2026-09-07 phase 2
+  amendment above already recorded that `star_by_snaps` is uncomputable for
+  2013; nothing enforced it. `_coverage_refs` compared a `prior_season` term's
+  columns against their *data* window (2013–2025) rather than the seasons they
+  can *answer* for (2014–2025), so the injury-exit query returned
+  `seasons.covered: [2013, 2025]`, `excluded: []` and simply produced no 2013
+  row — a season that cannot match reads exactly like a season with no matches.
+  The lag was only ever expressed in each join's SQL string. It is now declared
+  as `Join.season_lag` (`+1` on the three `prior` joins, `-1` on
+  `player_season.next`, which had the same bug at the other end of the range)
+  and read through `entities.namespace_lag`; the gate groups refs by lag,
+  shifts each group, and reports `limiting` in answerable seasons. Fixes the
+  same class of bug for a plan-level `prior.` attribute, not just terms.
+  **Consequence:** a `prior_season` query over the full range is now a
+  `coverage_gap` refusal unless `allow_partial_coverage` is set — consistent
+  with how every other hard gap behaves. All ten fixture plans already set it;
+  three unit tests that exercised the prior join now set it too. 06-query.md
+  step 6 corrected.
+
 ---
 
 ## Glossary
@@ -829,6 +849,9 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
 - **signal** — one of the five general ways a definition is expressed.
 - **entity** — the row type a plan is about.
 - **namespace** — a fixed join from an entity to a related row (`prior.`, `game.`, `next.`).
+- **season lag** — how many seasons back a namespace reads (`Join.season_lag`).
+  A ref read through it answers for its data window shifted by that much, which
+  is why a `prior_season` term cannot answer the database's first season.
 - **lift** — using a coarser entity's definition in a finer entity's plan (D16).
 - **cohort** — the partition a percentile/rank is computed within.
 - **coverage** — first and last season for which an attribute/definition has data.

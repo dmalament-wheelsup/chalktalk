@@ -77,10 +77,21 @@ def check(plan, store, catalog, coverage, settings, conn) -> GateResult
    quarantine: `{name: reason}`.
 5. `entity_mismatch` — lift failure: definition entity, plan entity, allowed
    plan entities.
-6. `coverage_gap` — requested range vs `coverage.intersect` over every attr
-   used anywhere in the plan plus every used definition's `requires()`. If a
-   gap and not `allow_partial_coverage`: error with `{requested, covered,
-   limiting: [{ref, first, last}]}`. Else clamp, record `excluded`, warn.
+6. `coverage_gap` — requested range vs the intersection over every attr used
+   anywhere in the plan plus every used definition's `requires()`, **each
+   shifted by the season lag of the namespace it is read through**
+   (`Join.season_lag`: `+1` for the `prior` joins, `-1` for
+   `player_season.next`, `0` otherwise). A ref read a season back can only
+   answer for seasons one later than its data exists for, so a `prior_season`
+   term cannot answer the database's first season at all. Refs are grouped by
+   lag and intersected within the group before shifting. The lag is taken from
+   the namespace the definition's own reference *lifts to* in the plan entity,
+   so a plan-level `basis` override changes it. If a gap and not
+   `allow_partial_coverage`: error with `{requested, covered, limiting:
+   [{ref, first, last, lag?, data_first?, data_last?, why?}]}` — `first`/`last`
+   are the seasons the ref can *answer* for, already shifted. Else clamp,
+   record `excluded`, warn, and say the lag is the reason rather than
+   "no data".
 7. Warnings (never errors): `prefers()` refs not covering the whole range
    (e.g. participation evidence unavailable before 2016); the current season
    is `in_progress` and included; attributes with `has_gaps`.
