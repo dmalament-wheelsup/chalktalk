@@ -13,14 +13,12 @@ from chalktalk.cli import main
 from chalktalk.config import Settings
 
 
-@pytest.mark.parametrize(
-    ("command", "phase"),
-    [("serve", 8), ("logs", 8)],
-)
-def test_stubs_exit_two(command: str, phase: int) -> None:
-    result = CliRunner().invoke(main, [command])
-    assert result.exit_code == 2
-    assert f"not implemented (phase {phase})" in result.output
+def test_no_subcommand_is_a_stub_any_more() -> None:
+    """Every phase has landed; nothing should still be exiting 2 with a phase number."""
+    for command in ("build", "coverage", "defs", "logs", "serve", "doctor"):
+        result = CliRunner().invoke(main, [command, "--help"])
+        assert result.exit_code == 0, command
+        assert "not implemented" not in result.output
 
 
 def test_help_lists_every_subcommand() -> None:
@@ -197,3 +195,33 @@ def test_defs_without_a_database(tmp_settings: Settings) -> None:
     result = CliRunner().invoke(main, ["defs", "list"])
     assert result.exit_code != 0
     assert "no database" in result.output
+
+
+def test_logs_summary_reads_the_audit_log(tmp_settings: Settings) -> None:
+    from chalktalk import audit
+
+    audit.record(
+        tmp_settings, {"tool": "raw_sql", "sql": "select count(*) from pbp where season = 2023"}
+    )
+    audit.record(
+        tmp_settings, {"tool": "raw_sql", "sql": "select count(*) from pbp where season = 2024"}
+    )
+    audit.record(tmp_settings, {"tool": "query", "entity": "player_game"})
+
+    result = CliRunner().invoke(main, ["logs", "summary"])
+    assert result.exit_code == 0, result.output
+    assert "3 call(s)" in result.output
+    assert "recurring raw SQL" in result.output
+    assert "2x" in result.output, "the two season queries share a shape"
+
+
+def test_logs_summary_on_an_empty_log(tmp_settings: Settings) -> None:
+    result = CliRunner().invoke(main, ["logs", "summary"])
+    assert result.exit_code == 0
+    assert "nothing logged" in result.output
+
+
+def test_logs_summary_rejects_a_nonsense_window(tmp_settings: Settings) -> None:
+    result = CliRunner().invoke(main, ["logs", "summary", "--since", "yesterday"])
+    assert result.exit_code != 0
+    assert "30d" in result.output

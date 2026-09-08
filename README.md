@@ -3,9 +3,9 @@
 An MCP server for composite NFL questions where the hard part is agreeing on what
 the words mean.
 
-> **Status: in progress.** Ingest works — `chalktalk build` pulls nflverse into a
-> local DuckDB file. The feature layer, definitions and the server are not built
-> yet. See [`docs/plan/00-index.md`](docs/plan/00-index.md) for the phase ledger.
+> **Status: working.** Ingest, the feature layer, definitions and the MCP server
+> are in place. See [`docs/plan/00-index.md`](docs/plan/00-index.md) for the
+> phase ledger.
 
 ## The problem
 
@@ -71,6 +71,16 @@ uv run pytest
 The default run is the unit tier and needs no data. Tests that require a built
 database are marked `data` and are opt-in: `uv run pytest -m data`.
 
+Once a database exists, install the shipped vocabulary:
+
+```bash
+uv run chalktalk defs install
+```
+
+That is 45 definitions — `early_exit`, `blowout`, `heavy_carries` and so on —
+all ordinary specs you can read with `chalktalk defs show NAME` and change.
+`star_player` is deliberately not among them.
+
 ## Building the database
 
 ```bash
@@ -84,6 +94,54 @@ downloading anything; `--seasons` and `--only` narrow it.
 
 The file is disposable — rebuild it weekly and nothing is lost, because
 definitions live outside it under `~/.chalktalk/definitions/`.
+
+## Connect
+
+Build the database first, then point an MCP client at the server.
+
+```bash
+claude mcp add chalktalk -- uv --directory /path/to/chalktalk run chalktalk serve
+```
+
+For Claude Desktop, the equivalent in `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "chalktalk": {
+      "command": "uv",
+      "args": ["--directory", "/path/to/chalktalk", "run", "chalktalk", "serve"],
+      "env": { "CHALKTALK_HOME": "/Users/you/.chalktalk" }
+    }
+  }
+}
+```
+
+`CHALKTALK_HOME` defaults to `~/.chalktalk` and holds the database, your
+definitions and the audit log. Pass it explicitly if you keep them elsewhere.
+
+The server exposes eleven tools. The ones that matter to a person:
+`propose_definition` when a word has no agreed meaning yet, `save_definition`
+once you have chosen, `query` to ask, and `raw_sql` for the questions the tool
+surface cannot yet express. Every `query` answer carries the definitions it
+used, the seasons it covered, a sample of matched rows and the SQL.
+
+What a session looks like:
+
+```
+you   How many times have star players played fewer than 15 snaps
+      before leaving with injury?
+      → unresolved_term: star_player
+        star_by_snaps     top 10% of snap share last season, within position group
+        star_by_contract  top 10% of pay as a share of the cap
+        star_by_draft     a first-round pick
+you   the contract one
+      → saved as star_player; 2013-2025
+      → 61 player-games, by season, with the rows behind them
+```
+
+The refusal is the point. Ask again next week and it answers straight away,
+because `star_player` now means something you chose.
 
 ## Design
 

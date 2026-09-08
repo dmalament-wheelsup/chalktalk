@@ -108,7 +108,7 @@ the same machinery answers ten unrelated questions.
 | 5 | done | 2026-09-08 | b66cf4b | 5 signals, store, propose; mini DB landed |
 | 6 | done | 2026-09-08 | 011a504 | gate + compiler + envelope; 10/10 plans compile |
 | 7 | done | 2026-09-08 | b104b44 | Gate B: 19/21 exits, 10/10 plans on real data |
-| 8 | not started | | | |
+| 8 | done | 2026-09-08 | _pending_ | 11 tools, sql guard, audit log |
 | 9 | in progress | 2026-09-07 | | tiers + unit CI in place; fixtures and mini DB land with phases 4/7 |
 | 10 | not started | | | |
 
@@ -466,6 +466,26 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   (INTEGER, DOUBLE in three seasons from 2020). Phase 4 must cast
   `jersey_number`/`draft_number` rather than assume a number. The lossless test
   fails on any coercion to text that is *not* in `type_conflicts`.
+
+- **2026-09-08 · phase 8 · the guard is the second fence, not the first.** The
+  plan's forbidden-keyword list does not cover `read_csv` and friends, and it
+  should not: listing every catalog function that touches the filesystem is a
+  losing game. The boundary is `open_ro` from phase 1. A test now states this
+  layering explicitly — the text guard *permits* `select * from read_csv(...)`,
+  and a real sandboxed connection refuses it — so nobody later mistakes the
+  guard for the fence. The mini database is a plain in-memory connection and
+  would happily read a file, which is exactly why that test needs a real one.
+
+- **2026-09-08 · phase 8 · `build_info` is absent from a hand-made database.**
+  It is written by the ingest build, not by `features.build_all`, so any server
+  pointed at a database assembled another way (the mini one, a restored subset)
+  crashed on `build_status` and on every `query`, which embeds it. Now tolerated.
+
+- **2026-09-08 · phase 8 · the stdio server was driven end to end.** Not just
+  in-process: a subprocess speaking JSON-RPC over stdin/stdout initialises,
+  reports 45 definitions across 2013–2025, and refuses the headline question
+  with the three `star_by_*` candidates. stdout carried nothing but protocol;
+  logging went to stderr.
 
 - **2026-09-08 · phase 7 · Gate B: 19 of 21 exit fixtures agree, and the two
   that do not are a genuine trade-off, not a bug.** Measured on the real build:

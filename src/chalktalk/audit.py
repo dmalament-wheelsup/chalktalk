@@ -1,0 +1,109 @@
+"""One JSON line per query, and what to do with them.
+
+The log is not for debugging. `raw_sql` is the escape hatch for questions the
+tool surface cannot yet answer, so a query that keeps being written by hand is
+evidence that something should become a first-class attribute or definition.
+`chalktalk logs summary` is the roadmap.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+from collections import Counter
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from typing import Any
+
+from chalktalk.config import Settings
+from chalktalk.paths import audit_log, logs_dir
+
+log = logging.getLogger(__name__)
+
+_NUMBER = re.compile(r"\b\d+(\.\d+)?\b")
+_STRING = re.compile(r"'(?:[^']|'')*'")
+_SPACE = re.compile(r"\s+")
+
+
+def fingerprint(sql: str) -> str:
+    """Collapse a statement to its shape, so repeats of it group together."""
+    text = _STRING.sub("'S'", sql)
+    text = _NUMBER.sub("N", text)
+    return _SPACE.sub(" ", text).strip().lower()
+
+
+def record(settings: Settings, entry: dict[str, Any]) -> None:
+    """Append one line. Never raises: a failed log must not fail a query."""
+    entry = {"ts": datetime.now(UTC).replace(microsecond=0).isoformat(), **entry}
+    try:
+        logs_dir(settings).mkdir(parents=True, exist_ok=True)
+        with audit_log(settings).open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(entry, default=str) + "\n")
+    except OSError as exc:
+        log.warning("could not write the audit log: %s", exc)
+
+
+def read(settings: Settings, since: timedelta | None = None) -> list[dict[str, Any]]:
+    path = audit_log(settings)
+    if not path.is_file():
+        return []
+    cutoff = (datetime.now(UTC) - since).isoformat() if since else None
+    entries = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            entry = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if cutoff and entry.get("ts", "") < cutoff:
+            continue
+        entries.append(entry)
+    return entries
+
+
+@dataclass
+class Summary:
+    calls: Counter
+    errors: Counter
+    raw_shapes: list[tuple[str, int, str]]  # fingerprint, count, last seen
+    total: int
+
+
+def summarize(settings: Settings, since: timedelta | None = None, top: int = 20) -> Summary:
+    entries = read(settings, since)
+    calls: Counter = Counter(e.get("tool", "?") for e in entries)
+    errors: Counter = Counter(e["error"] for e in entries if e.get("error"))
+
+    shapes: Counter = Counter()
+    last_seen: dict[str, str] = {}
+    for entry in entries:
+        if entry.get("tool") != "raw_sql" or not entry.get("sql"):
+            continue
+        shape = fingerprint(entry["sql"])
+        shapes[shape] += 1
+        last_seen[shape] = entry.get("ts", "")
+
+    return Summary(
+        calls=calls,
+        errors=errors,
+        raw_shapes=[(s, n, last_seen.get(s, "")) for s, n in shapes.most_common(top)],
+        total=len(entries),
+    )
+
+
+def parse_since(text: str) -> timedelta:
+    """`30d`, `12h`, `90m`."""
+    match = re.fullmatch(r"(\d+)([dhm])", text.strip().lower())
+    if not match:
+        raise ValueError(f"expected something like 30d, 12h or 90m, got {text!r}")
+    amount, unit = int(match.group(1)), match.group(2)
+    return {
+        "d": timedelta(days=amount),
+        "h": timedelta(hours=amount),
+        "m": timedelta(minutes=amount),
+    }[unit]
+
+
+def path_for(settings: Settings) -> Path:
+    return audit_log(settings)

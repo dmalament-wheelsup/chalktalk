@@ -7,7 +7,6 @@ so a script that calls one before it exists fails loudly.
 from __future__ import annotations
 
 import platform
-import sys
 from importlib import metadata
 from pathlib import Path
 
@@ -25,16 +24,6 @@ from chalktalk.paths import (
     history_dir,
     logs_dir,
 )
-
-_STUB_PHASE = {
-    "serve": 8,
-    "logs": 8,
-}
-
-
-def _not_implemented(command: str) -> None:
-    print(f"not implemented (phase {_STUB_PHASE[command]})", file=sys.stderr)
-    raise SystemExit(2)
 
 
 def _n(value: int | None) -> str:
@@ -113,7 +102,10 @@ def build(
 @main.command()
 def serve() -> None:
     """Run the MCP server over stdio."""
-    _not_implemented("serve")
+    from chalktalk.server import serve as run_server
+
+    # stdout belongs to the MCP transport from here on.
+    run_server(Settings.load())
 
 
 @main.command()
@@ -423,10 +415,45 @@ def defs_propose(term: str, context: str | None, entity: str | None) -> None:
         conn.close()
 
 
-@main.command()
+@main.group()
 def logs() -> None:
-    """Show the audit log."""
-    _not_implemented("logs")
+    """Inspect the audit log."""
+
+
+@logs.command("summary")
+@click.option("--since", default="30d", show_default=True, help="Window, e.g. 30d, 12h, 90m.")
+@click.option("--top", default=20, show_default=True, help="How many raw-SQL shapes to show.")
+def logs_summary(since: str, top: int) -> None:
+    """What has been asked, and which raw queries keep coming back.
+
+    A statement written by hand again and again is the roadmap: it is a thing
+    the tool surface cannot yet say.
+    """
+    from chalktalk import audit
+
+    s = Settings.load()
+    try:
+        window = audit.parse_since(since)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    report = audit.summarize(s, window, top)
+    if not report.total:
+        print(f"nothing logged in the last {since} ({audit.path_for(s)})")
+        return
+
+    print(f"{report.total} call(s) in the last {since}\n")
+    width = max(len(name) for name in report.calls) if report.calls else 10
+    for tool, count in report.calls.most_common():
+        print(f"  {tool:<{width}}  {count:>6}")
+    if report.errors:
+        print("\nrefusals")
+        for code, count in report.errors.most_common():
+            print(f"  {code:<{width}}  {count:>6}")
+    if report.raw_shapes:
+        print("\nrecurring raw SQL — candidates for a first-class attribute")
+        for shape, count in [(s_, c) for s_, c, _ in report.raw_shapes]:
+            print(f"  {count:>4}x  {shape[:110]}")
 
 
 @main.command()
