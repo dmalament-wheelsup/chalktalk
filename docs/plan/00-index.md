@@ -467,6 +467,37 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   `jersey_number`/`draft_number` rather than assume a number. The lossless test
   fails on any coercion to text that is *not* in `type_conflicts`.
 
+- **2026-09-07 · phase 4a · `snap_counts.position` has 48 values, not 19.** The
+  plan's value set (`C CB DE DT FB FS G K LB LS NT P QB RB SS T TE WR`) is the
+  common head of a longer tail. PFR also emits `S DB OL DL HB OT OG OLB ILB MLB`
+  and ~600 rows of compound strings (`C/G`, `G/T`, `DE/L`, `G/OT`, `RB/W`,
+  `K/P`, …). `xwalk.POSITION_GROUP` therefore resolves on the first token before
+  `/` and maps all 28 base tokens, not the 19 listed. The fallback only fires
+  when `players` has no row for the id, which is rare, but a NULL
+  `position_group` would put a player in no unit at all.
+
+- **2026-09-07 · phase 4a · `rosters_weekly.pfr_id` is 50% populated, not 64%.**
+  283,396 of 562,246 rows from 2013 on. D6's conclusion is unaffected and in
+  fact strengthened — it is a supplementary source, not the crosswalk. In
+  practice it contributes **2** ids that `players` does not already have.
+  `players` alone resolves 99.93% of snap-count rows (226 unresolved of
+  324,611), comfortably past the ≥ 99% bar.
+
+- **2026-09-07 · phase 4a · feature builders declare their inputs.** A partial
+  build (`chalktalk build --only teams`) has no `players` table, and
+  `build_all` aborted the whole build on the missing table. Each entry in
+  `features.BUILDERS` now carries a `requires` tuple; a builder whose inputs are
+  absent is skipped with a warning. Same shape as the phase 3 `schedules` guard
+  — partial builds are a supported mode and every stage of phase 4 must respect
+  it.
+
+- **2026-09-07 · phase 4a · `lift_namespace` and the `prior` namespace.** A
+  `prior_season` definition's own row is already `season - 1`, so its `prior`
+  namespace would be two seasons back. There is no such join, so it is refused
+  for every plan entity rather than silently resolving to `prior` — which is
+  what the plan's parenthetical "(then `prior` ns is unavailable)" means, made
+  explicit. `LIFTS` is unchanged.
+
 - **2026-09-07 · phase 4 · worked in four stages, not renumbered.** 04-features.md
   now carries a **Stages** section: 4a foundations · 4b team side · 4c player
   season · 4d player game and Gate A, each its own commit. The phase keeps one

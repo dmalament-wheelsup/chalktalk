@@ -49,7 +49,7 @@ Measured before splitting, so the staging rests on numbers rather than worry:
 concentrated in `player_game` and Gate A; the bulk of the *work* is the ~250
 hand-written catalog entries, which is broad but cannot fail interestingly.
 
-- [ ] **4a — foundations.** `tests/fixtures/exits.yaml`, `entities.py`,
+- [x] **4a — foundations.** _(done 2026-09-07)_ `tests/fixtures/exits.yaml`, `entities.py`,
       `catalog.py` machinery, `xwalk.py`. Green: crosswalk ≥ 99%, namespace and
       lift consistency, catalog well-formedness and completeness.
 - [ ] **4b — the team side.** `game_ctx`, `team_game`, `team_season`. Three of
@@ -97,9 +97,15 @@ from raw tables only, so `player_game` can join it for prior-season attributes.
 From `players` where `pfr_id IS NOT NULL`, unioned with distinct
 `(pfr_id, gsis_id)` pairs from `rosters_weekly` not already present
 (`source='rosters_weekly'`). Position-group fallback for snap-count positions
-when `players` has no row: `QB→QB · RB,FB→RB · WR→WR · TE→TE · T,G,C→OL ·
-DE,DT,NT→DL · LB→LB · CB,FS,SS→DB · K,P,LS→SPEC`. Log the unresolved count.
+when `players` has no row. Amended 2026-09-07: `snap_counts.position` has **48**
+distinct values, not the 19 listed elsewhere in this plan, including ~600 rows
+of compound strings (`C/G`, `DE/L`, `G/OT`). Resolve on the first token before
+`/`, then map all 28 base tokens: `QB→QB · RB,FB,HB→RB · WR→WR · TE→TE ·
+T,OT,G,OG,C,OL→OL · DE,DT,NT,DL→DL · LB,OLB,ILB,MLB→LB · CB,FS,SS,S,DB→DB ·
+K,P,LS→SPEC`. Log the unresolved count.
 Test: ≥ 99% of `snap_counts` rows (season ≥ floor) resolve to a `gsis_id`.
+Measured: **99.93%** (226 of 324,611 unresolved); `rosters_weekly` contributes
+only 2 ids beyond `players`.
 
 ## `game_ctx` — entity `game`
 

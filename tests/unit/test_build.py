@@ -270,3 +270,37 @@ def test_build_info_is_written(tmp_settings: Settings, monkeypatch: pytest.Monke
     ).fetchone()
     conn.close()
     assert row == ("0.1.0", 2013, 2023, 2023)
+
+
+def test_a_feature_with_missing_inputs_is_skipped(
+    conn: duckdb.DuckDBPyConnection, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`chalktalk build --only pbp` has no players table; skip, do not abort."""
+    from chalktalk import features
+
+    with caplog.at_level("WARNING"):
+        features.build_all(conn, Settings.load())
+    assert "skipping player_id_xwalk" in caplog.text
+    assert not features._missing(conn, ())
+
+
+def test_a_feature_builds_when_its_inputs_are_present(conn: duckdb.DuckDBPyConnection) -> None:
+    from chalktalk import features
+
+    conn.execute(
+        "CREATE TABLE players (pfr_id VARCHAR, gsis_id VARCHAR, display_name VARCHAR, "
+        "position VARCHAR, position_group VARCHAR)"
+    )
+    conn.execute("INSERT INTO players VALUES ('Rodg00', '00-0023459', 'Aaron Rodgers', 'QB', 'QB')")
+    conn.execute(
+        "CREATE TABLE rosters_weekly (pfr_id VARCHAR, gsis_id VARCHAR, full_name VARCHAR, "
+        "position VARCHAR, season INTEGER, week INTEGER)"
+    )
+    conn.execute(
+        "CREATE TABLE snap_counts (pfr_player_id VARCHAR, season INTEGER, player VARCHAR, "
+        "position VARCHAR)"
+    )
+    conn.execute("INSERT INTO snap_counts VALUES ('Rodg00', 2023, 'Aaron Rodgers', 'QB')")
+
+    features.build_all(conn, Settings.load())
+    assert conn.execute("SELECT gsis_id FROM player_id_xwalk").fetchone() == ("00-0023459",)
