@@ -3,9 +3,16 @@
   "name": "went_for_it",
   "aliases": [],
   "entity": "play",
+  "basis": null,
   "signal": "rule",
   "params": {
+    "match": "all",
     "rules": [
+      {
+        "attr": "down",
+        "op": "=",
+        "value": 4
+      },
       {
         "attr": "play_type",
         "op": "in",
@@ -16,7 +23,7 @@
       }
     ]
   },
-  "description": "Ran a play rather than kicking.",
+  "description": "Ran a play on fourth down rather than kicking.",
   "provenance": {
     "source": "shipped",
     "created_at": "2026-09-08T00:00:00Z",

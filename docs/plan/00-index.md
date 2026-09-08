@@ -107,7 +107,7 @@ the same machinery answers ten unrelated questions.
 | 4 | done | 2026-09-08 | d2f1725 | Gate A green; 241 attributes; staged 4a–4d |
 | 5 | done | 2026-09-08 | b66cf4b | 5 signals, store, propose; mini DB landed |
 | 6 | done | 2026-09-08 | 011a504 | gate + compiler + envelope; 10/10 plans compile |
-| 7 | not started | | | Gate B |
+| 7 | done | 2026-09-08 | _pending_ | Gate B: 19/21 exits, 10/10 plans on real data |
 | 8 | not started | | | |
 | 9 | in progress | 2026-09-07 | | tiers + unit CI in place; fixtures and mini DB land with phases 4/7 |
 | 10 | not started | | | |
@@ -466,6 +466,57 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   (INTEGER, DOUBLE in three seasons from 2020). Phase 4 must cast
   `jersey_number`/`draft_number` rather than assume a number. The lossless test
   fails on any coercion to text that is *not* in `type_conflicts`.
+
+- **2026-09-08 · phase 7 · Gate B: 19 of 21 exit fixtures agree, and the two
+  that do not are a genuine trade-off, not a bug.** Measured on the real build:
+
+  | variant | correct | gets wrong |
+  |---|---|---|
+  | shipped `early_exit` | 19/21 | misses Chubb, matches Hainsey |
+  | stricter corroboration | 19/21 | matches Hainsey correctly, **loses A.J. Brown** |
+  | looser `regular` (0.4) | 20/21 | still matches Hainsey |
+
+  `chubb_2023_w2` fails `regular` (`baseline_share >= 0.5`) at 0.49, because a
+  single threshold across every position is the wrong shape for running backs.
+  `hainsey_2022_w18` matches because he started, was rested, and missed the next
+  game — and no attribute distinguishes "displaced by a returning teammate" from
+  "injured". **Neither threshold was tuned**; both cases are asserted explicitly
+  with the variant that changes each, because which trade-off to take is the
+  user's call. This is why matched rows are always returned.
+
+- **2026-09-08 · phase 7 · `star_by_snaps` barely discriminates among
+  quarterbacks, and the fixture was corrected rather than the definition.**
+  In 2022, 34 eligible QBs had a median snap share of 0.965, so the top decile
+  is four players at 0.992+; a 17-game starter at 0.974 is not one. Offensive
+  linemen are worse — the cutoff is a perfect 1.000. Running backs (median
+  0.322, cutoff 0.648), receivers and defensive linemen behave as intended.
+  `stars.yaml` originally asserted that full-time starting quarterbacks were
+  `star_by_snaps`; that expectation was about *availability*, not a
+  within-position percentile. D2 is a resolved decision and was **not** changed;
+  the evidence and three options are written up in `docs/decision-history.md`
+  for whoever revisits it. Two of the fixture's sharpest predictions held
+  untouched: Watt 2017 (2016 was 3 of 16 games, below the eligibility floor) and
+  Burrow 2023 by contract (2022 was still the rookie deal).
+
+- **2026-09-08 · phase 7 · `any_of` branches are preferred, not required.**
+  The plan's acceptance says `early_exit` should show coverage **2013–2025** with
+  a warning about participation, but a composite that required every branch's
+  attributes gave 2016–2025 and refused 2013 outright. Inside an `any_of` one
+  branch suffices, so a branch whose attribute has no data weakens the answer
+  rather than making it impossible. `CompositeSignal.requires` now stops at an
+  `any_of` and reports those refs through `prefers` instead. Two consequences:
+  the gate must compute coverage from the plan's **own** terms, not from the
+  flattened transitive list (which reinstates every branch as hard), and a lift
+  failure during compilation now becomes an `entity_mismatch` envelope rather
+  than escaping as an exception.
+
+- **2026-09-08 · phase 7 · the generality suite answers on real data.** All ten
+  plans run: fourth-down aggression over 3,039 matched plays and rising as
+  anyone following the sport would expect, 180 favourites blown out across 13
+  seasons, 110 star-exit player-games. Plan 8 matches **3** rows in 13 seasons —
+  correctly: the NFL schedules Thursday games with both teams on four days' rest,
+  so "short week against a rested opponent" barely happens. The envelope's
+  matched total is what makes that visible rather than mysterious.
 
 - **2026-09-08 · phase 6 · the shipped vocabulary landed here, not in phase 7.**
   Phase 6's acceptance requires the ten generality plans to compile "with the

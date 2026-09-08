@@ -240,3 +240,51 @@ list is short.
 Ingest and the coverage registry — small and verifiable — not the whole thing at
 once. And validate the early-exit logic by hand against five remembered injury
 exits before building anything on top of it.
+
+
+## 2026-09-08 — evidence on D2's `star_by_snaps`, no change made
+
+Gate B measured what `star_by_snaps` (prior-season `snap_share_mean` ≥ 90th
+percentile within `(season, position_group)`) actually selects. It works as
+specified. Its usefulness varies enormously by position, and for quarterbacks
+it is close to meaningless.
+
+2022 cohorts, players meeting the 0.5 availability floor:
+
+| group | n | median | top-decile cutoff |
+|---|---|---|---|
+| QB | 34 | 0.965 | **0.992** |
+| OL | 196 | 0.949 | **1.000** |
+| DB | 236 | 0.812 | 0.985 |
+| LB | 171 | 0.588 | 0.948 |
+| WR | 159 | 0.578 | 0.890 |
+| TE | 103 | 0.438 | 0.783 |
+| DL | 222 | 0.457 | 0.765 |
+| RB | 103 | 0.322 | 0.648 |
+
+Every full-time quarterback plays essentially every snap, so the QB cohort is
+compressed into the top few percent of the range and the top decile is four
+players. Aaron Rodgers started all 17 games in 2022 at a 0.974 share and is
+**not** a `star_by_snaps` for 2023; neither is Joe Burrow (0.986). For
+offensive linemen the cutoff is a perfect 1.000. For running backs, receivers
+and defensive linemen the measure discriminates as intended.
+
+The honest reading is that for QB and OL, snap share measures *availability*
+rather than standing — it says a player was healthy and starting, and beyond
+that it cannot separate anyone.
+
+**Nothing was changed.** D2 is a resolved decision, and which of the three
+`star_by_*` definitions is a good default is a product judgement rather than a
+bug. This is recorded so that a future revisit has the numbers. Three options
+exist if it is revisited, all expressible without code:
+
+1. Leave it, and let `propose_definition` say what it measures per position.
+2. Ship a position-aware variant as a composite (`star_by_snaps` for the
+   positions where share varies, something else for QB and OL).
+3. Make the shipped default `star_by_contract`, which does discriminate among
+   quarterbacks — at the cost of being sparse before 2017.
+
+The fixtures in `tests/fixtures/stars.yaml` originally asserted that full-time
+starting quarterbacks were `star_by_snaps`. That expectation was about
+availability, not about a within-position percentile, and has been corrected
+with the measured numbers rather than by changing the definition.

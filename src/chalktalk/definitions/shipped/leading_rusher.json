@@ -3,6 +3,7 @@
   "name": "leading_rusher",
   "aliases": [],
   "entity": "player_season",
+  "basis": null,
   "signal": "rank",
   "params": {
     "attr": "carries",
@@ -27,7 +28,7 @@
     "created_at": "2026-09-08T00:00:00Z",
     "updated_at": "2026-09-08T00:00:00Z",
     "copied_from": null,
-    "note": null
+    "note": "Attributed to team_primary, the team he appeared for most, so a player traded mid-season counts once, for one team."
   },
   "version": 1
 }

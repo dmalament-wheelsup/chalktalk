@@ -1,19 +1,21 @@
 {
   "schema_version": 1,
-  "name": "absent_next_game",
+  "name": "undrafted",
   "aliases": [],
-  "entity": "player_game",
+  "entity": "player_season",
+  "basis": null,
   "signal": "rule",
   "params": {
+    "match": "all",
     "rules": [
       {
-        "attr": "played_team_next_game",
+        "attr": "undrafted",
         "op": "=",
-        "value": false
+        "value": true
       }
     ]
   },
-  "description": "Took no snap in the team's next game.",
+  "description": "Was not drafted.",
   "provenance": {
     "source": "shipped",
     "created_at": "2026-09-08T00:00:00Z",

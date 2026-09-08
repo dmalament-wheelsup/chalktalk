@@ -1,19 +1,21 @@
 {
   "schema_version": 1,
-  "name": "started_first_snap",
+  "name": "playoff_team",
   "aliases": [],
-  "entity": "player_game",
+  "entity": "team_season",
+  "basis": null,
   "signal": "rule",
   "params": {
+    "match": "all",
     "rules": [
       {
-        "attr": "pp_first_idx",
+        "attr": "made_playoffs",
         "op": "=",
-        "value": 1
+        "value": true
       }
     ]
   },
-  "description": "On the field for his unit's first snap (2016+).",
+  "description": "Played at least one postseason game that year.",
   "provenance": {
     "source": "shipped",
     "created_at": "2026-09-08T00:00:00Z",

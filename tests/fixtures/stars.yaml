@@ -1,0 +1,75 @@
+# Hand-authored football knowledge, adjudicated against the data on 2026-09-08 under the
+# phase 9 protocol. Evaluated with basis: prior_season, so the season listed is the one being
+# asked about and each definition reads the season before it.
+#
+# The measurement that drove the corrections: snap share barely discriminates among
+# quarterbacks. In 2022, 34 QBs met the availability floor with a median share of 0.965, so the
+# top decile is four players at 0.992+. A quarterback who starts all 17 games at 0.974 is not in
+# it. The same compression hits offensive linemen, whose cutoff is a perfect 1.000. For running
+# backs (median 0.322, cutoff 0.648), receivers and defensive linemen it works as intended.
+# See docs/decision-history.md — the definition was NOT changed, the expectation was.
+#
+# Two of the original predictions were exactly right and are untouched: Watt 2017 by snaps
+# (2016 was 3 of 16 games, below the eligibility floor) and Burrow 2023 by contract (2022 was
+# still the rookie deal). Both turn on the mechanism, which is what makes them worth having.
+cases:
+  - player: "Aaron Rodgers"
+    season: 2023
+    star_by_snaps: {assert: false, why: "0.974 in 2022 over 17 starts; the QB top decile begins at 0.992"}
+    star_by_contract: {assert: true}
+    star_by_draft: {assert: true}
+  - player: "Kyler Murray"
+    season: 2022
+    star_by_snaps: {assert: false, why: "QB snap share does not separate starters"}
+    star_by_contract: {assert: false, why: "2021 was the rookie deal"}
+    star_by_draft: {assert: true}
+  - player: "Nick Bosa"
+    season: 2020
+    star_by_snaps: {assert: false, why: "2019 was 0.72 of defensive snaps; DL rotate"}
+    star_by_contract: {assert: false, why: "2019 was the rookie deal"}
+    star_by_draft: {assert: true}
+  - player: "Aaron Rodgers"
+    season: 2017
+    star_by_snaps: {assert: false, why: "same QB compression as 2023"}
+    star_by_contract: {assert: true}
+    star_by_draft: {assert: true}
+  - player: "Saquon Barkley"
+    season: 2020
+    star_by_snaps: {assert: true, why: "2019 was a genuine top-decile back; RB share discriminates"}
+    star_by_contract: {assert: true}
+    star_by_draft: {assert: true}
+  - player: "J.J. Watt"
+    season: 2017
+    star_by_snaps: {assert: false, why: "2016 was 3 of 16 games (back); games_played_share 0.19, not eligible"}
+    star_by_contract: {assert: true}
+    star_by_draft: {assert: true}
+  - player: "Ryan Shazier"
+    season: 2017
+    star_by_snaps: {assert: false}
+    star_by_contract: {assert: false}
+    star_by_draft: {assert: true}
+  - player: "Trey Lance"
+    season: 2022
+    star_by_snaps: {assert: false}
+    star_by_contract: {assert: false}
+    star_by_draft: {assert: true}
+  - player: "Nick Chubb"
+    season: 2023
+    star_by_snaps: {assert: false, why: "0.564 in 2022 against an RB top-decile cutoff of 0.648"}
+    star_by_contract: {assert: true}
+    star_by_draft: {assert: false, why: "round 2, pick 35"}
+  - player: "Anthony Richardson"
+    season: 2023
+    star_by_snaps: {assert: false, why: "rookie — no prior season"}
+    star_by_contract: {assert: false}
+    star_by_draft: {assert: false, why: "a rookie has no prior-season row at all, so a prior_season definition reads nothing — even a career fact like draft round"}
+  - player: "Joe Burrow"
+    season: 2023
+    star_by_snaps: {assert: false, why: "0.986 in 2022, below the 0.992 QB cutoff"}
+    star_by_contract: {assert: false, why: "the 2022 contract was the rookie deal; the extension was signed in September 2023"}
+    star_by_draft: {assert: true}
+  - player: "Kirk Cousins"
+    season: 2023
+    star_by_snaps: {assert: false, why: "QB compression again"}
+    star_by_contract: {assert: false, why: "2022 was 0.168 of the cap, below the QB top decile"}
+    star_by_draft: {assert: false, why: "round 4"}

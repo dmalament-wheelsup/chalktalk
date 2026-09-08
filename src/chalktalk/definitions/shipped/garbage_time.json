@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "name": "garbage_time",
+  "aliases": [],
+  "entity": "play",
+  "basis": null,
+  "signal": "rule",
+  "params": {
+    "match": "any",
+    "rules": [
+      {
+        "attr": "wp",
+        "op": "<=",
+        "value": 0.05
+      },
+      {
+        "attr": "wp",
+        "op": ">=",
+        "value": 0.95
+      }
+    ]
+  },
+  "description": "The result was all but settled.",
+  "provenance": {
+    "source": "shipped",
+    "created_at": "2026-09-08T00:00:00Z",
+    "updated_at": "2026-09-08T00:00:00Z",
+    "copied_from": null,
+    "note": "Win probability outside 5%-95%. That threshold is a convention, not a fact; argue with it by editing this definition."
+  },
+  "version": 1
+}

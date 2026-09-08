@@ -3,8 +3,10 @@
   "name": "listed_injured_next",
   "aliases": [],
   "entity": "player_game",
+  "basis": null,
   "signal": "rule",
   "params": {
+    "match": "all",
     "rules": [
       {
         "attr": "next.inj_listed",

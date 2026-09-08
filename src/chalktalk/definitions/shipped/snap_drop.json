@@ -3,6 +3,7 @@
   "name": "snap_drop",
   "aliases": [],
   "entity": "player_game",
+  "basis": null,
   "signal": "delta",
   "params": {
     "attr": "snap_share_unit",
@@ -18,7 +19,7 @@
     "created_at": "2026-09-08T00:00:00Z",
     "updated_at": "2026-09-08T00:00:00Z",
     "copied_from": null,
-    "note": null
+    "note": "min_baseline 0.3 keeps out the meaningless case: a backup at 3% who plays 1.5% has halved his workload and it says nothing."
   },
   "version": 1
 }

@@ -13,6 +13,7 @@ import duckdb
 from chalktalk.config import Settings
 from chalktalk.coverage import Coverage
 from chalktalk.definitions.explain import explain as explain_definition
+from chalktalk.entities import ENTITIES, EntityMismatch, can_lift
 from chalktalk.query.compile import compile_plan
 from chalktalk.query.envelope import (
     DefinitionUsed,
@@ -57,6 +58,24 @@ def _season_report(plan, gate, coverage: Coverage) -> SeasonReport:
     )
 
 
+def _compile(plan, gate, store, settings, conn):
+    """Compile, turning a lift failure into a refusal rather than a traceback.
+
+    The gate checks that each definition's *entity* lifts, but whether each of
+    its *namespaces* survives is only known once it compiles — a prior_season
+    definition that reaches for `prior` would be asking for two seasons back.
+    """
+    try:
+        return compile_plan(plan, gate, store=store, settings=settings, conn=conn), None
+    except EntityMismatch as exc:
+        return None, ErrorEnvelope(
+            error="entity_mismatch",
+            message=str(exc),
+            plan_entity=plan.entity,
+            allowed_entities=[e for e in ENTITIES if can_lift(plan.entity, e)],
+        )
+
+
 def explain_query(
     plan: QueryPlan, *, store, coverage: Coverage, settings: Settings, conn
 ) -> dict[str, Any]:
@@ -65,7 +84,9 @@ def explain_query(
     if not gate.ok:
         return gate.error.as_dict()
 
-    compiled = compile_plan(plan, gate, store=store, settings=settings, conn=conn)
+    compiled, refusal = _compile(plan, gate, store, settings, conn)
+    if refusal is not None:
+        return refusal.as_dict()
     envelope = Envelope(
         question=plan.question,
         entity=plan.entity,
@@ -95,7 +116,9 @@ def query(
     if not gate.ok:
         return gate.error.as_dict()
 
-    compiled = compile_plan(plan, gate, store=store, settings=settings, conn=conn)
+    compiled, refusal = _compile(plan, gate, store, settings, conn)
+    if refusal is not None:
+        return refusal.as_dict()
     try:
         result = run(conn, compiled, settings)
     except QueryTimeout as exc:

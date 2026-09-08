@@ -189,3 +189,56 @@ def shipped_store(mini_conn, mini_settings, tmp_path):
     report = install(store)
     assert not report.failed, report.failed
     return store
+
+
+@pytest.fixture(scope="module")
+def real_settings() -> Settings:
+    return Settings.load()
+
+
+@pytest.fixture(scope="module")
+def real_conn(real_settings):
+    """The published build. Data-tier only."""
+    from chalktalk.db import open_ro, read_current
+
+    artifact = read_current(real_settings)
+    if artifact is None:
+        pytest.skip(f"no database under {real_settings.home}; run `chalktalk build`")
+    conn = open_ro(artifact, real_settings)
+    yield conn
+    conn.close()
+
+
+@pytest.fixture(scope="module")
+def real_store(real_conn, real_settings, tmp_path_factory):
+    """A throwaway store with the shipped vocabulary, bound to the real build."""
+    from chalktalk.definitions.context import open_store
+    from chalktalk.definitions.vocabulary_install import install
+
+    store = open_store(
+        real_conn, real_settings, directory=tmp_path_factory.mktemp("shipped") / "definitions"
+    )
+    report = install(store)
+    assert not report.failed, report.failed
+    return store
+
+
+@pytest.fixture(scope="module")
+def ask(real_conn, real_settings, real_store):
+    """Run a plan through the whole pipeline against the real build."""
+    from chalktalk.coverage import Coverage
+    from chalktalk.query.plan import QueryPlan
+    from chalktalk.query.run import query
+
+    coverage = Coverage(real_conn, real_settings)
+
+    def run(payload: dict):
+        return query(
+            QueryPlan.model_validate(payload),
+            store=real_store,
+            coverage=coverage,
+            settings=real_settings,
+            conn=real_conn,
+        )
+
+    return run

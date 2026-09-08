@@ -135,10 +135,35 @@ class CompositeSignal(Signal):
         return _ENGLISH[params.op].join(params.terms)
 
     def requires(self, d: Definition, ctx: ValidationCtx) -> list[AttrRef]:
+        """What the composite cannot do without.
+
+        For `all_of`, every branch has to work, so every branch's requirements
+        are requirements. For `any_of` they are **not**: one branch suffices, so
+        a branch whose attribute has no data in some season weakens the answer
+        rather than making it impossible. That is the difference between
+        `early_exit` refusing 2013 outright and answering it with a warning that
+        participation evidence was unavailable.
+        """
+        params = self.parse(d)
+        if params.op == "any_of":
+            return []
+        return self._branch_refs(d, ctx, params.terms)
+
+    def prefers(self, d: Definition, ctx: ValidationCtx) -> list[AttrRef]:
+        """What sharpens the composite without being necessary."""
+        params = self.parse(d)
+        refs = self._branch_refs(d, ctx, params.terms, prefers=True)
+        if params.op == "any_of":
+            refs = self._branch_refs(d, ctx, params.terms) + refs
+        return refs
+
+    def _branch_refs(
+        self, d: Definition, ctx: ValidationCtx, terms: list[str], *, prefers: bool = False
+    ) -> list[AttrRef]:
         from chalktalk.definitions.signals import SIGNALS
 
         refs: list[AttrRef] = []
-        for name in self.parse(d).terms:
+        for name in terms:
             term = ctx.store.get(name)
             if term is None:
                 continue
@@ -149,7 +174,8 @@ class CompositeSignal(Signal):
                 store=ctx.store,
                 settings=ctx.settings,
             )
-            refs.extend(SIGNALS[term.signal].requires(term, inner))
+            signal = SIGNALS[term.signal]
+            refs.extend(signal.prefers(term, inner) if prefers else signal.requires(term, inner))
         return refs
 
 

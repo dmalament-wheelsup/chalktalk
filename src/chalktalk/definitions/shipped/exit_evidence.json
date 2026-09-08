@@ -3,6 +3,7 @@
   "name": "exit_evidence",
   "aliases": [],
   "entity": "player_game",
+  "basis": null,
   "signal": "composite",
   "params": {
     "op": "any_of",

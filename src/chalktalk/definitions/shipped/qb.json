@@ -2,9 +2,11 @@
   "schema_version": 1,
   "name": "qb",
   "aliases": [],
-  "entity": "player_game",
+  "entity": "player_season",
+  "basis": null,
   "signal": "rule",
   "params": {
+    "match": "all",
     "rules": [
       {
         "attr": "position_group",
@@ -13,7 +15,7 @@
       }
     ]
   },
-  "description": "A quarterback.",
+  "description": "A QB.",
   "provenance": {
     "source": "shipped",
     "created_at": "2026-09-08T00:00:00Z",

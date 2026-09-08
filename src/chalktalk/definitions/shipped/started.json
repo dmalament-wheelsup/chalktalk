@@ -3,12 +3,21 @@
   "name": "started",
   "aliases": [],
   "entity": "player_game",
-  "signal": "composite",
+  "basis": null,
+  "signal": "rule",
   "params": {
-    "op": "any_of",
-    "terms": [
-      "started_first_snap",
-      "started_at_qb"
+    "match": "any",
+    "rules": [
+      {
+        "attr": "is_starting_qb",
+        "op": "=",
+        "value": true
+      },
+      {
+        "attr": "pp_first_idx",
+        "op": "=",
+        "value": 1
+      }
     ]
   },
   "description": "On the field for his unit's first snap, or the listed starting quarterback.",
@@ -17,7 +26,7 @@
     "created_at": "2026-09-08T00:00:00Z",
     "updated_at": "2026-09-08T00:00:00Z",
     "copied_from": null,
-    "note": null
+    "note": "pp_first_idx is NULL before 2016, so in 2013-2015 this holds only for quarterbacks."
   },
   "version": 1
 }

@@ -2,9 +2,11 @@
   "schema_version": 1,
   "name": "rookie",
   "aliases": [],
-  "entity": "player_game",
+  "entity": "player_season",
+  "basis": null,
   "signal": "rule",
   "params": {
+    "match": "all",
     "rules": [
       {
         "attr": "is_rookie",

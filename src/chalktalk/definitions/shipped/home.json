@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "name": "road",
+  "name": "home",
   "aliases": [],
   "entity": "team_game",
   "basis": null,
@@ -11,11 +11,11 @@
       {
         "attr": "home",
         "op": "=",
-        "value": false
+        "value": true
       }
     ]
   },
-  "description": "Playing away from home.",
+  "description": "Playing at home.",
   "provenance": {
     "source": "shipped",
     "created_at": "2026-09-08T00:00:00Z",

@@ -3,6 +3,7 @@
   "name": "heavy_carries",
   "aliases": [],
   "entity": "player_season",
+  "basis": null,
   "signal": "percentile",
   "params": {
     "attr": "carries",
@@ -10,15 +11,24 @@
       "season",
       "position_group"
     ],
-    "pctile": 90
+    "pctile": 90,
+    "eligible": {
+      "rules": [
+        {
+          "attr": "games_played_share",
+          "op": ">=",
+          "value": 0.5
+        }
+      ]
+    }
   },
-  "description": "Top 10% of carries within position group.",
+  "description": "Top 10% of carries within position group that season.",
   "provenance": {
     "source": "shipped",
     "created_at": "2026-09-08T00:00:00Z",
     "updated_at": "2026-09-08T00:00:00Z",
     "copied_from": null,
-    "note": null
+    "note": "The cohort is per season, so a 16-game total never competes with a 17-game one."
   },
   "version": 1
 }

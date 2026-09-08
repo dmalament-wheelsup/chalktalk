@@ -3,8 +3,10 @@
   "name": "left_early",
   "aliases": [],
   "entity": "player_game",
+  "basis": null,
   "signal": "rule",
   "params": {
+    "match": "all",
     "rules": [
       {
         "attr": "pp_missed_tail_frac",
@@ -19,7 +21,7 @@
     "created_at": "2026-09-08T00:00:00Z",
     "updated_at": "2026-09-08T00:00:00Z",
     "copied_from": null,
-    "note": null
+    "note": "Needs participation data, which begins in 2016. Before that, snap_drop carries the evidence alone."
   },
   "version": 1
 }

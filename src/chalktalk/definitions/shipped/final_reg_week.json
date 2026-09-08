@@ -1,27 +1,27 @@
 {
   "schema_version": 1,
-  "name": "road",
+  "name": "final_reg_week",
   "aliases": [],
-  "entity": "team_game",
+  "entity": "game",
   "basis": null,
   "signal": "rule",
   "params": {
     "match": "all",
     "rules": [
       {
-        "attr": "home",
+        "attr": "is_final_reg_week",
         "op": "=",
-        "value": false
+        "value": true
       }
     ]
   },
-  "description": "Playing away from home.",
+  "description": "The last week of the regular season.",
   "provenance": {
     "source": "shipped",
     "created_at": "2026-09-08T00:00:00Z",
     "updated_at": "2026-09-08T00:00:00Z",
     "copied_from": null,
-    "note": null
+    "note": "Week 17 through 2020 and week 18 from 2021, read from the schedule rather than written down."
   },
   "version": 1
 }

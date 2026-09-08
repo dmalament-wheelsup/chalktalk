@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "name": "road",
+  "name": "short_week",
   "aliases": [],
   "entity": "team_game",
   "basis": null,
@@ -9,13 +9,13 @@
     "match": "all",
     "rules": [
       {
-        "attr": "home",
-        "op": "=",
-        "value": false
+        "attr": "rest_days",
+        "op": "<=",
+        "value": 5
       }
     ]
   },
-  "description": "Playing away from home.",
+  "description": "Five days or fewer since the team's last game.",
   "provenance": {
     "source": "shipped",
     "created_at": "2026-09-08T00:00:00Z",

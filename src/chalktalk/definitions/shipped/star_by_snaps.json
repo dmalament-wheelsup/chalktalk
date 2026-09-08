@@ -11,7 +11,16 @@
       "season",
       "position_group"
     ],
-    "pctile": 90
+    "pctile": 90,
+    "eligible": {
+      "rules": [
+        {
+          "attr": "games_played_share",
+          "op": ">=",
+          "value": 0.5
+        }
+      ]
+    }
   },
   "description": "Top 10% of snap share last season, within position group.",
   "provenance": {
@@ -19,7 +28,7 @@
     "created_at": "2026-09-08T00:00:00Z",
     "updated_at": "2026-09-08T00:00:00Z",
     "copied_from": null,
-    "note": null
+    "note": "One of three answers to 'star'. They disagree about real players, which is the point."
   },
   "version": 1
 }

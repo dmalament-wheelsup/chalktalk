@@ -3,8 +3,10 @@
   "name": "played",
   "aliases": [],
   "entity": "player_game",
+  "basis": null,
   "signal": "rule",
   "params": {
+    "match": "all",
     "rules": [
       {
         "attr": "snaps_unit",

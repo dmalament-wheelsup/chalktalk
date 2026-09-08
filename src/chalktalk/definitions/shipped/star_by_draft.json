@@ -6,6 +6,7 @@
   "basis": "prior_season",
   "signal": "rule",
   "params": {
+    "match": "all",
     "rules": [
       {
         "attr": "draft_round",
@@ -20,7 +21,7 @@
     "created_at": "2026-09-08T00:00:00Z",
     "updated_at": "2026-09-08T00:00:00Z",
     "copied_from": null,
-    "note": null
+    "note": "Draft capital is what a team believed before he played, not what he did."
   },
   "version": 1
 }

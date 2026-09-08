@@ -124,7 +124,7 @@ def check(
             )
 
     # 6. coverage_gap
-    refs = _coverage_refs(plan, used, store, conn)
+    refs = _coverage_refs(plan, [store.get(t.term) for t in wanted], store, conn)
     covered = coverage.intersect(refs)
     queryable = coverage.queryable_seasons()
     if not queryable:
@@ -178,7 +178,11 @@ def check(
         )
 
     # 7. warnings, never errors
-    warnings.extend(_soft_warnings(plan, used, store, coverage, conn, first, last))
+    warnings.extend(
+        _soft_warnings(
+            plan, [store.get(t.term) for t in wanted], store, coverage, conn, first, last
+        )
+    )
 
     return GateResult(
         ok=True,
@@ -286,7 +290,14 @@ def _ctx(entity: str, store, coverage, settings, conn) -> ValidationCtx:
 
 
 def _coverage_refs(plan, used, store, conn) -> list[tuple[str, str]]:
-    """(table, column) for everything the plan touches, definitions included."""
+    """(table, column) for everything the plan touches, definitions included.
+
+    ``used`` must be the plan's *own* terms, not every definition reached
+    transitively: `requires()` already recurses, and it deliberately stops at an
+    `any_of`, where one branch suffices. Passing the flattened list back in would
+    reinstate every branch as a hard requirement and refuse seasons the
+    definition can in fact answer.
+    """
     refs: set[tuple[str, str]] = set()
 
     for ref in plan.attributes():

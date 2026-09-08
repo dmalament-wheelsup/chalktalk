@@ -3,8 +3,10 @@
   "name": "lost",
   "aliases": [],
   "entity": "team_game",
+  "basis": null,
   "signal": "rule",
   "params": {
+    "match": "all",
     "rules": [
       {
         "attr": "lost",

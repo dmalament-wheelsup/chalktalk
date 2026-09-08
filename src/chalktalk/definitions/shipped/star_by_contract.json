@@ -11,7 +11,15 @@
       "season",
       "position_group"
     ],
-    "pctile": 90
+    "pctile": 90,
+    "eligible": {
+      "rules": [
+        {
+          "attr": "apy_cap_pct",
+          "op": "is_not_null"
+        }
+      ]
+    }
   },
   "description": "Top 10% of pay as a share of the cap last season, within position group.",
   "provenance": {
@@ -19,7 +27,7 @@
     "created_at": "2026-09-08T00:00:00Z",
     "updated_at": "2026-09-08T00:00:00Z",
     "copied_from": null,
-    "note": null
+    "note": "Contracts are sparse before 2017: about 65% of player-seasons have one in 2013, rising to ~99% from 2017, so this is weaker in the early seasons."
   },
   "version": 1
 }

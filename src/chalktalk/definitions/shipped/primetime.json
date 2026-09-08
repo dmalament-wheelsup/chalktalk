@@ -3,8 +3,10 @@
   "name": "primetime",
   "aliases": [],
   "entity": "game",
+  "basis": null,
   "signal": "rule",
   "params": {
+    "match": "all",
     "rules": [
       {
         "attr": "kickoff_hour",
@@ -19,7 +21,7 @@
     "created_at": "2026-09-08T00:00:00Z",
     "updated_at": "2026-09-08T00:00:00Z",
     "copied_from": null,
-    "note": null
+    "note": "Read from kickoff_hour, which is parsed from the scheduled Eastern kickoff."
   },
   "version": 1
 }

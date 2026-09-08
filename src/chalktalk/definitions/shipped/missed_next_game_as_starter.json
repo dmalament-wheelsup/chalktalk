@@ -1,25 +1,24 @@
 {
   "schema_version": 1,
-  "name": "exit_corroborated",
+  "name": "missed_next_game_as_starter",
   "aliases": [],
   "entity": "player_game",
   "basis": null,
   "signal": "composite",
   "params": {
-    "op": "any_of",
+    "op": "all_of",
     "terms": [
-      "listed_injured_next",
-      "on_reserve_soon",
-      "missed_next_game_as_starter"
+      "missed_next_game",
+      "started"
     ]
   },
-  "description": "Something after the game supports the inference.",
+  "description": "Started this game and did not play the next one.",
   "provenance": {
     "source": "shipped",
     "created_at": "2026-09-08T00:00:00Z",
     "updated_at": "2026-09-08T00:00:00Z",
     "copied_from": null,
-    "note": null
+    "note": "Absence alone is weak for a backup: Teddy Bridgewater sat the 2019 wild-card game because Drew Brees was healthy, not because he was hurt."
   },
   "version": 1
 }
