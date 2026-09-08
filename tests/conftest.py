@@ -128,3 +128,52 @@ def mini_ctx(mini_conn, mini_settings, mini_store):
         )
 
     return make
+
+
+@pytest.fixture
+def mini_query(mini_conn, mini_settings, mini_store):
+    """Run a plan against the mini database, gate and all."""
+    from chalktalk.coverage import Coverage
+    from chalktalk.query.plan import QueryPlan
+    from chalktalk.query.run import query
+
+    coverage = Coverage(mini_conn, mini_settings)
+
+    def run(payload: dict):
+        plan = QueryPlan.model_validate({"entity": "player_game", **payload})
+        return query(
+            plan, store=mini_store, coverage=coverage, settings=mini_settings, conn=mini_conn
+        )
+
+    return run
+
+
+@pytest.fixture
+def mini_gate(mini_conn, mini_settings, mini_store):
+    """Gate a plan without compiling or running it."""
+    from chalktalk.coverage import Coverage
+    from chalktalk.query.gate import check
+    from chalktalk.query.plan import QueryPlan
+
+    coverage = Coverage(mini_conn, mini_settings)
+
+    def run(payload: dict):
+        plan = QueryPlan.model_validate({"entity": "player_game", **payload})
+        return plan, check(
+            plan, store=mini_store, coverage=coverage, settings=mini_settings, conn=mini_conn
+        )
+
+    return run
+
+
+@pytest.fixture
+def defined(mini_store):
+    """Save a definition and return it, for tests that need terms to exist."""
+    from chalktalk.definitions.spec import DefinitionIn
+
+    def save(name: str, params: dict, entity: str = "player_game", signal: str = "rule", **kw):
+        return mini_store.save(
+            DefinitionIn(name=name, entity=entity, signal=signal, params=params, **kw)
+        )
+
+    return save

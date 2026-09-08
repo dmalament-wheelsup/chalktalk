@@ -11,6 +11,7 @@ catalog or a bound parameter. Literal values never reach the SQL text.
 
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -136,3 +137,41 @@ class Signal(ABC):
     def evidence(self, d: Definition, ctx: ValidationCtx) -> list[AttrRef]:
         """Columns worth showing in the matched-row sample."""
         return self.requires(d, ctx)
+
+
+_PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
+
+
+def lift_compiled(compiled: Compiled, term: Definition, target_entity: str, basis: str) -> Compiled:
+    """Rewrite a term's namespaces into the entity it is being used in (D16).
+
+    A signal emits `{self}` and never consults `alias_of`, so the lift has to
+    happen to the compiled text. Used inside a `player_game` query, a
+    `prior_season` `player_season` term's `{self}` must become `{prior}` —
+    otherwise the predicate reads `snap_share_mean` off the `player_game` row,
+    where there is no such column.
+
+    Both the composite signal and the query compiler need this, and they must
+    agree, so it lives here rather than in either of them.
+    """
+    from chalktalk.entities import lift_namespace
+
+    mapping: dict[str, str] = {}
+    for namespace in compiled.namespaces_used:
+        target = lift_namespace(term.entity, target_entity, namespace, basis=basis)
+        mapping[namespace] = target if target is not None else SELF_NS
+
+    if all(source == target for source, target in mapping.items()):
+        return compiled
+
+    # One pass, so renaming self->prior cannot then rename prior->something else.
+    predicate = _PLACEHOLDER.sub(
+        lambda m: "{" + mapping.get(m.group(1), m.group(1)) + "}", compiled.predicate_sql
+    )
+    return Compiled(
+        predicate,
+        compiled.params,
+        compiled.ctes,
+        set(mapping.values()),
+        compiled.terms_used,
+    )

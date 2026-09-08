@@ -188,6 +188,7 @@ def _pbp(games: list[dict]) -> list[dict]:
                     "wp": 0.55,
                     "touchdown": 0.0,
                     "penalty": 0.0,
+                    "desc": f"({idx}) play {idx} of {game['game_id']}",
                 }
             )
     return rows

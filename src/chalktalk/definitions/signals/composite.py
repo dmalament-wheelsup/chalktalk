@@ -9,7 +9,6 @@ missing an attribute (D22).
 
 from __future__ import annotations
 
-import re
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -20,10 +19,10 @@ from chalktalk.definitions.signals.base import (
     Compiled,
     Signal,
     ValidationCtx,
+    lift_compiled,
 )
 from chalktalk.definitions.spec import Definition, InvalidDefinition
-from chalktalk.entities import EntityMismatch, can_lift, lift_namespace
-from chalktalk.spec_types import SELF_NS
+from chalktalk.entities import EntityMismatch, can_lift
 
 Op = Literal["all_of", "any_of", "not"]
 
@@ -112,7 +111,7 @@ class CompositeSignal(Signal):
         for name in params.terms:
             term = _resolve(d, ctx, name)
             compiled = SIGNALS[term.signal].compile(term, _term_ctx(term, ctx))
-            compiled = _lift(compiled, term, d)
+            compiled = lift_compiled(compiled, term, d.entity, term.effective_basis)
             fragments.append(compiled.predicate_sql)
             values.extend(compiled.params)
             ctes.extend(compiled.ctes)
@@ -163,34 +162,6 @@ def _term_ctx(term: Definition, ctx: CompileCtx) -> CompileCtx:
         store=ctx.store,
         settings=ctx.settings,
         alias_of=ctx.alias_of,
-    )
-
-
-def _lift(compiled: Compiled, term: Definition, parent: Definition) -> Compiled:
-    """Translate a term's namespaces into the parent's (D16).
-
-    A term compiles against its own entity and emits `{self}` placeholders. Used
-    inside a `player_game` definition, a `prior_season` player_season term's
-    `{self}` has to become `{prior}` — otherwise the predicate would read
-    `snap_share_mean` off the player_game row, where there is no such column.
-    """
-    mapping: dict[str, str] = {}
-    for namespace in compiled.namespaces_used:
-        target = lift_namespace(term.entity, parent.entity, namespace, basis=term.effective_basis)
-        mapping[namespace] = target if target is not None else SELF_NS
-
-    if all(source == target for source, target in mapping.items()):
-        return compiled
-
-    # One pass, so that renaming self->prior cannot then rename prior->something.
-    pattern = re.compile(r"\{(" + "|".join(re.escape(n) for n in mapping) + r")\}")
-    predicate = pattern.sub(lambda m: "{" + mapping[m.group(1)] + "}", compiled.predicate_sql)
-    return Compiled(
-        predicate,
-        compiled.params,
-        compiled.ctes,
-        set(mapping.values()),
-        compiled.terms_used,
     )
 
 

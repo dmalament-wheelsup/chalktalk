@@ -185,8 +185,12 @@ for _family in VOCABULARY:
 
 
 def families_for(text: str) -> list[Family]:
-    """Every family whose words appear in ``text``, longest phrase first."""
-    lowered = f" {text.lower().strip()} "
+    """Every family whose words appear in ``text``, longest phrase first.
+
+    Underscores read as spaces, because a term arriving from a query plan is a
+    definition name — `star_player`, not "star player".
+    """
+    lowered = f" {text.lower().strip().replace('_', ' ')} "
     hits: list[tuple[int, Family]] = []
     for family in VOCABULARY:
         best = max(
