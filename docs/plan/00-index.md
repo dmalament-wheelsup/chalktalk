@@ -107,7 +107,7 @@ the same machinery answers ten unrelated questions.
 | 4 | done | 2026-09-08 | d2f1725 | Gate A green; 241 attributes; staged 4a–4d |
 | 5 | done | 2026-09-08 | b66cf4b | 5 signals, store, propose; mini DB landed |
 | 6 | done | 2026-09-08 | 011a504 | gate + compiler + envelope; 10/10 plans compile |
-| 7 | done | 2026-09-08 | _pending_ | Gate B: 19/21 exits, 10/10 plans on real data |
+| 7 | done | 2026-09-08 | b104b44 | Gate B: 19/21 exits, 10/10 plans on real data |
 | 8 | not started | | | |
 | 9 | in progress | 2026-09-07 | | tiers + unit CI in place; fixtures and mini DB land with phases 4/7 |
 | 10 | not started | | | |
