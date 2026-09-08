@@ -177,3 +177,15 @@ def defined(mini_store):
         )
 
     return save
+
+
+@pytest.fixture
+def shipped_store(mini_conn, mini_settings, tmp_path):
+    """A store with the shipped vocabulary installed, as a real one would have."""
+    from chalktalk.definitions.context import open_store
+    from chalktalk.definitions.vocabulary_install import install
+
+    store = open_store(mini_conn, mini_settings, directory=tmp_path / "definitions")
+    report = install(store)
+    assert not report.failed, report.failed
+    return store

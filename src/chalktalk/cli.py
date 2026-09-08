@@ -367,6 +367,26 @@ def defs_import(path: Path, overwrite: bool) -> None:
         conn.close()
 
 
+@defs.command("install")
+@click.option("--overwrite", is_flag=True, help="Replace shipped definitions the user has edited.")
+def defs_install(overwrite: bool) -> None:
+    """Install the vocabulary that ships with chalktalk."""
+    from chalktalk.definitions.vocabulary_install import install
+
+    store, conn = _open_store()
+    try:
+        report = install(store, overwrite=overwrite)
+        print(f"installed {len(report.installed)}, kept {len(report.kept)} already present")
+        for name, why in sorted(report.failed.items()):
+            print(f"  failed {name}: {why}")
+        if report.failed:
+            raise SystemExit(1)
+        print("\n`star_player` is deliberately not shipped: ask for it and chalktalk will")
+        print("offer star_by_snaps, star_by_contract and star_by_draft, which disagree.")
+    finally:
+        conn.close()
+
+
 @defs.command("propose")
 @click.argument("term")
 @click.option("--context", help="The rest of the question, for better suggestions.")

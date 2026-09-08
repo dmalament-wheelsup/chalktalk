@@ -1,0 +1,24 @@
+{
+  "question": "How often do favourites lose by 17 or more?",
+  "entity": "team_game",
+  "where": [
+    {
+      "term": "favorite"
+    },
+    {
+      "term": "lost"
+    },
+    {
+      "term": "blowout"
+    }
+  ],
+  "group_by": [
+    "season"
+  ],
+  "metrics": [
+    {
+      "fn": "count"
+    }
+  ],
+  "allow_partial_coverage": true
+}

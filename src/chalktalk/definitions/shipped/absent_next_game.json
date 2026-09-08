@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "name": "absent_next_game",
+  "aliases": [],
+  "entity": "player_game",
+  "signal": "rule",
+  "params": {
+    "rules": [
+      {
+        "attr": "played_team_next_game",
+        "op": "=",
+        "value": false
+      }
+    ]
+  },
+  "description": "Took no snap in the team's next game.",
+  "provenance": {
+    "source": "shipped",
+    "created_at": "2026-09-08T00:00:00Z",
+    "updated_at": "2026-09-08T00:00:00Z",
+    "copied_from": null,
+    "note": null
+  },
+  "version": 1
+}

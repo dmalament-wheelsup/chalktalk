@@ -106,7 +106,7 @@ the same machinery answers ten unrelated questions.
 | 3 | done | 2026-09-07 | 2eb48b7 | 4 amendments; 808 columns registered |
 | 4 | done | 2026-09-08 | d2f1725 | Gate A green; 241 attributes; staged 4a–4d |
 | 5 | done | 2026-09-08 | b66cf4b | 5 signals, store, propose; mini DB landed |
-| 6 | not started | | | |
+| 6 | done | 2026-09-08 | _pending_ | gate + compiler + envelope; 10/10 plans compile |
 | 7 | not started | | | Gate B |
 | 8 | not started | | | |
 | 9 | in progress | 2026-09-07 | | tiers + unit CI in place; fixtures and mini DB land with phases 4/7 |
@@ -466,6 +466,37 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   (INTEGER, DOUBLE in three seasons from 2020). Phase 4 must cast
   `jersey_number`/`draft_number` rather than assume a number. The lossless test
   fails on any coercion to text that is *not* in `type_conflicts`.
+
+- **2026-09-08 · phase 6 · the shipped vocabulary landed here, not in phase 7.**
+  Phase 6's acceptance requires the ten generality plans to compile "with the
+  shipped definitions loaded from `definitions/shipped/`", so they had to exist.
+  31 definitions now ship, installed by `chalktalk defs install`. **All ten plans
+  parse, gate, compile and execute**, and every filter in them is a term or an
+  attribute rule — no code was written for any of them, which is the acceptance
+  test for the architecture (D22). Phase 7 is therefore Gate B — running them
+  against real data and checking the numbers — rather than authoring them.
+
+- **2026-09-08 · phase 6 · the same lifting bug, a third time.** A bare lifted
+  term in a plan's `where` kept its own `{self}` placeholder, exactly as terms
+  inside a composite did in 5b. The rewriting now lives in
+  `signals/base.lift_compiled` and both callers use it, because they have to
+  agree: a `prior_season` `player_season` term in a `player_game` query must
+  read from the `prior` join, not from the `player_game` row. Anywhere else that
+  compiles a definition into a different entity must call it too.
+
+- **2026-09-08 · phase 6 · the `play` entity has no `game_type`.** `pbp` spells
+  it `season_type` and only distinguishes REG from POST, so the plan's list of
+  game-typed entities is wrong for `play`. The filter reaches through the `game`
+  join instead, where the real five values live. `GAME_TYPED` is now the
+  entities whose own table carries the column; `GAME_TYPE_VIA_GAME` is `play`.
+
+- **2026-09-08 · phase 6 · three-valued logic is surfaced, not smoothed over.**
+  A predicate over a NULL attribute is *unknown*, not false. A row where it is
+  unknown appears in neither `X` nor `not X`, is excluded from `avg(term)`
+  rather than counted as a miss, and forms its own group when grouping by a
+  term. All three are asserted by tests. Folding unknown into false would
+  quietly assert something the data does not say, which is the failure this
+  project exists to prevent.
 
 - **2026-09-08 · phase 5 · two lifting bugs the plan's design invited.**
   (1) Signals emit `{namespace}` placeholders, and the plan resolves them

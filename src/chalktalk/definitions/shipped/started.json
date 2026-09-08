@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "name": "started",
+  "aliases": [],
+  "entity": "player_game",
+  "signal": "composite",
+  "params": {
+    "op": "any_of",
+    "terms": [
+      "started_first_snap",
+      "started_at_qb"
+    ]
+  },
+  "description": "On the field for his unit's first snap, or the listed starting quarterback.",
+  "provenance": {
+    "source": "shipped",
+    "created_at": "2026-09-08T00:00:00Z",
+    "updated_at": "2026-09-08T00:00:00Z",
+    "copied_from": null,
+    "note": null
+  },
+  "version": 1
+}

@@ -1,0 +1,36 @@
+{
+  "question": "How do teams fare on a short week against a rested opponent?",
+  "entity": "team_game",
+  "where": [
+    {
+      "attr": "rest_days",
+      "op": "<=",
+      "value": 5
+    },
+    {
+      "attr": "opp.rest_days",
+      "op": ">=",
+      "value": 7
+    }
+  ],
+  "group_by": [
+    "season"
+  ],
+  "metrics": [
+    {
+      "fn": "count"
+    },
+    {
+      "fn": "avg",
+      "of": "margin"
+    },
+    {
+      "fn": "avg",
+      "of": {
+        "term": "won"
+      },
+      "as": "win_rate"
+    }
+  ],
+  "allow_partial_coverage": true
+}

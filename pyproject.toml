@@ -31,6 +31,7 @@ dev = ["pytest>=8", "pytest-cov", "ruff>=0.6"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/chalktalk"]
+artifacts = ["src/chalktalk/definitions/shipped/*.json"]
 
 [tool.ruff]
 line-length = 100

@@ -1,0 +1,31 @@
+{
+  "question": "How often does a team's leading rusher sit out most of a blowout win?",
+  "entity": "player_game",
+  "where": [
+    {
+      "term": "leading_rusher"
+    },
+    {
+      "term": "played"
+    },
+    {
+      "attr": "snap_share_unit",
+      "op": "<",
+      "value": 0.3
+    },
+    {
+      "attr": "team.margin",
+      "op": ">=",
+      "value": 17
+    }
+  ],
+  "group_by": [
+    "season"
+  ],
+  "metrics": [
+    {
+      "fn": "count"
+    }
+  ],
+  "allow_partial_coverage": true
+}

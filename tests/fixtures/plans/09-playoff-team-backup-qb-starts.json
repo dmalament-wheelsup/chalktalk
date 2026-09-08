@@ -1,0 +1,34 @@
+{
+  "question": "How often do playoff teams start a quarterback who barely played the year before?",
+  "entity": "player_game",
+  "where": [
+    {
+      "term": "qb"
+    },
+    {
+      "attr": "is_starting_qb",
+      "op": "=",
+      "value": true
+    },
+    {
+      "attr": "prior.qb_starts",
+      "op": "<",
+      "value": 8
+    },
+    {
+      "attr": "team_season.made_playoffs",
+      "op": "=",
+      "value": true
+    }
+  ],
+  "group_by": [
+    "season",
+    "team"
+  ],
+  "metrics": [
+    {
+      "fn": "count"
+    }
+  ],
+  "allow_partial_coverage": true
+}

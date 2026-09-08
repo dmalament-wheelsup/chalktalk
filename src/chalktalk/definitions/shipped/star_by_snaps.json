@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "name": "star_by_snaps",
+  "aliases": [],
+  "entity": "player_season",
+  "basis": "prior_season",
+  "signal": "percentile",
+  "params": {
+    "attr": "snap_share_mean",
+    "cohort": [
+      "season",
+      "position_group"
+    ],
+    "pctile": 90
+  },
+  "description": "Top 10% of snap share last season, within position group.",
+  "provenance": {
+    "source": "shipped",
+    "created_at": "2026-09-08T00:00:00Z",
+    "updated_at": "2026-09-08T00:00:00Z",
+    "copied_from": null,
+    "note": null
+  },
+  "version": 1
+}

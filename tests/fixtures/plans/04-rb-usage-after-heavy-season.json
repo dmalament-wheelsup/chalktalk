@@ -1,0 +1,30 @@
+{
+  "question": "What happens to a running back's usage the season after a heavy one?",
+  "entity": "player_season",
+  "where": [
+    {
+      "term": "rb"
+    },
+    {
+      "term": "heavy_carries",
+      "basis": "prior_season"
+    }
+  ],
+  "group_by": [
+    "season"
+  ],
+  "metrics": [
+    {
+      "fn": "count"
+    },
+    {
+      "fn": "avg",
+      "of": "snap_share_mean"
+    },
+    {
+      "fn": "avg",
+      "of": "prior.snap_share_mean"
+    }
+  ],
+  "allow_partial_coverage": true
+}

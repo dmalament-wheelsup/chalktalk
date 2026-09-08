@@ -1,0 +1,39 @@
+{
+  "question": "How do rookie starting quarterbacks do on the road in primetime?",
+  "entity": "player_game",
+  "where": [
+    {
+      "term": "rookie"
+    },
+    {
+      "term": "qb"
+    },
+    {
+      "attr": "is_starting_qb",
+      "op": "=",
+      "value": true
+    },
+    {
+      "term": "road"
+    },
+    {
+      "term": "primetime"
+    }
+  ],
+  "group_by": [
+    "season"
+  ],
+  "metrics": [
+    {
+      "fn": "count"
+    },
+    {
+      "fn": "avg",
+      "of": {
+        "term": "won"
+      },
+      "as": "win_rate"
+    }
+  ],
+  "allow_partial_coverage": true
+}

@@ -1,0 +1,33 @@
+{
+  "question": "Which teams lost the most player-games to injury?",
+  "entity": "player_game",
+  "where": [
+    {
+      "term": "regular"
+    },
+    {
+      "term": "missed_next_game"
+    },
+    {
+      "term": "listed_injured_next"
+    }
+  ],
+  "group_by": [
+    "season",
+    "team"
+  ],
+  "metrics": [
+    {
+      "fn": "count",
+      "as": "games_lost"
+    }
+  ],
+  "order_by": [
+    {
+      "key": "games_lost",
+      "dir": "desc"
+    }
+  ],
+  "limit": 20,
+  "allow_partial_coverage": true
+}

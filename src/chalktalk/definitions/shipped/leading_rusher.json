@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "name": "leading_rusher",
+  "aliases": [],
+  "entity": "player_season",
+  "signal": "rank",
+  "params": {
+    "attr": "carries",
+    "cohort": [
+      "season",
+      "team_primary"
+    ],
+    "top_n": 1,
+    "eligible": {
+      "rules": [
+        {
+          "attr": "carries",
+          "op": ">",
+          "value": 0
+        }
+      ]
+    }
+  },
+  "description": "His team's leading rusher that season.",
+  "provenance": {
+    "source": "shipped",
+    "created_at": "2026-09-08T00:00:00Z",
+    "updated_at": "2026-09-08T00:00:00Z",
+    "copied_from": null,
+    "note": null
+  },
+  "version": 1
+}

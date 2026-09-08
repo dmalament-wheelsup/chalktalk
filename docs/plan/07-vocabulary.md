@@ -1,3 +1,12 @@
+> **Amended 2026-09-08.** The shipped definitions themselves landed in phase 6,
+> because that phase's acceptance requires the ten generality plans to compile
+> against them. 31 definitions are in `src/chalktalk/definitions/shipped/`, and
+> all ten plans parse, gate, compile and execute on the mini database. What
+> remains for this phase is **Gate B**: running them against real data and
+> checking the numbers, including the injury-exit fixtures and the two known
+> hard cases (`hainsey_2022_w18`, a false positive the composite currently
+> matches; `chubb_2023_w2`, whose baseline sits under a position-blind floor).
+
 # Phase 7 — Shipped vocabulary and Gate B
 
 ## Goal

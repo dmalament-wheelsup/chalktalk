@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "name": "star_by_draft",
+  "aliases": [],
+  "entity": "player_season",
+  "basis": "prior_season",
+  "signal": "rule",
+  "params": {
+    "rules": [
+      {
+        "attr": "draft_round",
+        "op": "=",
+        "value": 1
+      }
+    ]
+  },
+  "description": "A first-round pick.",
+  "provenance": {
+    "source": "shipped",
+    "created_at": "2026-09-08T00:00:00Z",
+    "updated_at": "2026-09-08T00:00:00Z",
+    "copied_from": null,
+    "note": null
+  },
+  "version": 1
+}

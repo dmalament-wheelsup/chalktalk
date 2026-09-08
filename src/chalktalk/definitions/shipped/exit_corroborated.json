@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "name": "exit_corroborated",
+  "aliases": [],
+  "entity": "player_game",
+  "signal": "composite",
+  "params": {
+    "op": "any_of",
+    "terms": [
+      "listed_injured_next",
+      "on_reserve_soon",
+      "missed_next_game"
+    ]
+  },
+  "description": "Something after the game supports the inference.",
+  "provenance": {
+    "source": "shipped",
+    "created_at": "2026-09-08T00:00:00Z",
+    "updated_at": "2026-09-08T00:00:00Z",
+    "copied_from": null,
+    "note": null
+  },
+  "version": 1
+}

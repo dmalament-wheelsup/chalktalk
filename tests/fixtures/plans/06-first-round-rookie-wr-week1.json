@@ -1,0 +1,35 @@
+{
+  "question": "Which first-round rookie receivers played most of the snaps in week 1?",
+  "entity": "player_game",
+  "where": [
+    {
+      "term": "rookie"
+    },
+    {
+      "term": "wr"
+    },
+    {
+      "term": "first_round_pick"
+    },
+    {
+      "attr": "week",
+      "op": "=",
+      "value": 1
+    },
+    {
+      "attr": "snap_share_unit",
+      "op": ">=",
+      "value": 0.8
+    }
+  ],
+  "metrics": [
+    {
+      "fn": "count"
+    },
+    {
+      "fn": "count_distinct",
+      "of": "player_key"
+    }
+  ],
+  "allow_partial_coverage": true
+}

@@ -1,0 +1,50 @@
+{
+  "question": "How often do teams go for it on fourth down when trailing by one score in the fourth quarter?",
+  "entity": "play",
+  "where": [
+    {
+      "attr": "down",
+      "op": "=",
+      "value": 4
+    },
+    {
+      "attr": "qtr",
+      "op": "=",
+      "value": 4
+    },
+    {
+      "attr": "score_differential",
+      "op": "between",
+      "value": [
+        -8,
+        -1
+      ]
+    },
+    {
+      "attr": "play_type",
+      "op": "in",
+      "value": [
+        "pass",
+        "run",
+        "punt",
+        "field_goal"
+      ]
+    }
+  ],
+  "group_by": [
+    "season"
+  ],
+  "metrics": [
+    {
+      "fn": "avg",
+      "of": {
+        "term": "went_for_it"
+      },
+      "as": "go_rate"
+    },
+    {
+      "fn": "count"
+    }
+  ],
+  "allow_partial_coverage": true
+}

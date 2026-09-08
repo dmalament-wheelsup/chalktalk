@@ -1,0 +1,27 @@
+{
+  "question": "How many times have star players played fewer than 15 snaps before leaving with injury? Total by season.",
+  "entity": "player_game",
+  "where": [
+    {
+      "term": "star_player",
+      "basis": "prior_season"
+    },
+    {
+      "term": "early_exit"
+    },
+    {
+      "attr": "snaps_unit",
+      "op": "<",
+      "value": 15
+    }
+  ],
+  "group_by": [
+    "season"
+  ],
+  "metrics": [
+    {
+      "fn": "count"
+    }
+  ],
+  "allow_partial_coverage": true
+}

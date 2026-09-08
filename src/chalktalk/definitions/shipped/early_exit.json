@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "name": "early_exit",
+  "aliases": [],
+  "entity": "player_game",
+  "signal": "composite",
+  "params": {
+    "op": "all_of",
+    "terms": [
+      "played",
+      "regular",
+      "exit_evidence",
+      "exit_corroborated"
+    ]
+  },
+  "description": "Left a regular-season game and did not return, corroborated by what happened next.",
+  "provenance": {
+    "source": "shipped",
+    "created_at": "2026-09-08T00:00:00Z",
+    "updated_at": "2026-09-08T00:00:00Z",
+    "copied_from": null,
+    "note": null
+  },
+  "version": 1
+}

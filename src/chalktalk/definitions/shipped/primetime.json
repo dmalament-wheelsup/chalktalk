@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "name": "primetime",
+  "aliases": [],
+  "entity": "game",
+  "signal": "rule",
+  "params": {
+    "rules": [
+      {
+        "attr": "kickoff_hour",
+        "op": ">=",
+        "value": 20
+      }
+    ]
+  },
+  "description": "Kicking off at 8pm Eastern or later.",
+  "provenance": {
+    "source": "shipped",
+    "created_at": "2026-09-08T00:00:00Z",
+    "updated_at": "2026-09-08T00:00:00Z",
+    "copied_from": null,
+    "note": null
+  },
+  "version": 1
+}
