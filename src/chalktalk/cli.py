@@ -420,6 +420,50 @@ def logs() -> None:
     """Inspect the audit log."""
 
 
+@logs.command("terms")
+@click.option("--since", default="30d", show_default=True, help="Window, e.g. 30d, 12h, 90m.")
+@click.option("--top", default=20, show_default=True, help="How many of each to show.")
+def logs_terms(since: str, top: int) -> None:
+    """Which vocabulary got used, and which raw fields keep being spelled out.
+
+    An attribute you filter on again and again is a concept you have been
+    restating rather than naming — the same logic as the recurring raw SQL in
+    `logs summary`, one level up.
+    """
+    from chalktalk import audit
+
+    s = Settings.load()
+    try:
+        window = audit.parse_since(since)
+    except ValueError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    usage = audit.term_usage(s, window)
+    if not usage.queries:
+        print(f"no queries in the last {since} ({audit.path_for(s)})")
+        return
+
+    print(f"{usage.queries} quer{'y' if usage.queries == 1 else 'ies'} in the last {since}")
+    print(f"{usage.with_terms} of them named at least one term\n")
+
+    if usage.terms:
+        print("terms named in plans")
+        for name, count in usage.terms.most_common(top):
+            refused = usage.unresolved.get(name, 0)
+            note = f"   ({refused} refused as undefined)" if refused else ""
+            print(f"  {count:>4}x  {name}{note}")
+
+    if usage.definitions:
+        print("\ndefinitions reached, including through composites")
+        for name, count in usage.definitions.most_common(top):
+            print(f"  {count:>4}x  {name}")
+
+    if usage.attributes:
+        print("\nraw fields filtered or grouped on — candidates for a definition")
+        for name, count in usage.attributes.most_common(top):
+            print(f"  {count:>4}x  {name}")
+
+
 @logs.command("summary")
 @click.option("--since", default="30d", show_default=True, help="Window, e.g. 30d, 12h, 90m.")
 @click.option("--top", default=20, show_default=True, help="How many raw-SQL shapes to show.")

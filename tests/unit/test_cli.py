@@ -225,3 +225,48 @@ def test_logs_summary_rejects_a_nonsense_window(tmp_settings: Settings) -> None:
     result = CliRunner().invoke(main, ["logs", "summary", "--since", "yesterday"])
     assert result.exit_code != 0
     assert "30d" in result.output
+
+
+def test_logs_terms_separates_vocabulary_from_raw_fields(tmp_settings: Settings) -> None:
+    from chalktalk import audit
+
+    audit.record(
+        tmp_settings,
+        {
+            "tool": "query",
+            "plan": {
+                "where": [{"term": "early_exit"}, {"attr": "snaps_unit", "op": "<", "value": 15}]
+            },
+            "definitions_used": [
+                {"name": "played", "version": 1},
+                {"name": "early_exit", "version": 1},
+            ],
+        },
+    )
+    result = CliRunner().invoke(main, ["logs", "terms"])
+    assert result.exit_code == 0, result.output
+    assert "1 of them named at least one term" in result.output
+    assert "early_exit" in result.output
+    assert "candidates for a definition" in result.output
+    assert "snaps_unit" in result.output
+
+
+def test_logs_terms_flags_a_term_that_was_refused(tmp_settings: Settings) -> None:
+    from chalktalk import audit
+
+    audit.record(
+        tmp_settings,
+        {
+            "tool": "query",
+            "plan": {"where": [{"term": "star_player"}]},
+            "error": "unresolved_term",
+        },
+    )
+    result = CliRunner().invoke(main, ["logs", "terms"])
+    assert "refused as undefined" in result.output
+
+
+def test_logs_terms_with_nothing_logged(tmp_settings: Settings) -> None:
+    result = CliRunner().invoke(main, ["logs", "terms"])
+    assert result.exit_code == 0
+    assert "no queries" in result.output

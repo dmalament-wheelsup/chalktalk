@@ -62,6 +62,97 @@ def read(settings: Settings, since: timedelta | None = None) -> list[dict[str, A
     return entries
 
 
+#: `Not` stores its clause under `not_` when a plan is dumped without aliases,
+#: but a plan that arrived as JSON says `not`. Accept both.
+_NOT_KEYS = ("not", "not_")
+
+
+def _walk_clause(clause: Any, terms: Counter, attributes: Counter) -> None:
+    if not isinstance(clause, dict):
+        return
+    if "term" in clause:
+        terms[clause["term"]] += 1
+        return
+    if "attr" in clause:
+        attributes[clause["attr"]] += 1
+        return
+    for key in _NOT_KEYS:
+        if key in clause:
+            _walk_clause(clause[key], terms, attributes)
+            return
+    for key in ("any_of", "all_of"):
+        for inner in clause.get(key) or []:
+            _walk_clause(inner, terms, attributes)
+
+
+def plan_usage(plan: dict[str, Any]) -> tuple[Counter, Counter]:
+    """(terms, attributes) a plan names — in filters, grouping and metrics alike."""
+    terms: Counter = Counter()
+    attributes: Counter = Counter()
+
+    for clause in plan.get("where") or []:
+        _walk_clause(clause, terms, attributes)
+
+    for key in plan.get("group_by") or []:
+        if isinstance(key, dict) and "term" in key:
+            terms[key["term"]] += 1
+        elif isinstance(key, str):
+            attributes[key] += 1
+
+    for metric in plan.get("metrics") or []:
+        of = metric.get("of") if isinstance(metric, dict) else None
+        if isinstance(of, dict) and "term" in of:
+            terms[of["term"]] += 1
+        elif isinstance(of, str):
+            attributes[of] += 1
+
+    return terms, attributes
+
+
+@dataclass
+class TermUsage:
+    """Which words a person actually reaches for, and which they keep spelling out."""
+
+    terms: Counter
+    definitions: Counter
+    attributes: Counter
+    unresolved: Counter
+    queries: int
+    with_terms: int
+
+
+def term_usage(settings: Settings, since: timedelta | None = None) -> TermUsage:
+    terms: Counter = Counter()
+    definitions: Counter = Counter()
+    attributes: Counter = Counter()
+    unresolved: Counter = Counter()
+    queries = 0
+    with_terms = 0
+
+    for entry in read(settings, since):
+        if entry.get("tool") not in ("query", "explain_query"):
+            continue
+        queries += 1
+        plan_terms, plan_attributes = plan_usage(entry.get("plan") or {})
+        terms.update(plan_terms)
+        attributes.update(plan_attributes)
+        if plan_terms:
+            with_terms += 1
+        for used in entry.get("definitions_used") or []:
+            definitions[used["name"]] += 1
+        if entry.get("error") == "unresolved_term":
+            unresolved.update(plan_terms)
+
+    return TermUsage(
+        terms=terms,
+        definitions=definitions,
+        attributes=attributes,
+        unresolved=unresolved,
+        queries=queries,
+        with_terms=with_terms,
+    )
+
+
 @dataclass
 class Summary:
     calls: Counter

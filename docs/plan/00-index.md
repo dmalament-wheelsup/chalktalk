@@ -467,6 +467,15 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   `jersey_number`/`draft_number` rather than assume a number. The lossless test
   fails on any coercion to text that is *not* in `type_conflicts`.
 
+- **2026-09-08 · phase 8 · `chalktalk logs terms` added.** `logs summary`
+  answers "what was asked" but not "did it go through the vocabulary or around
+  it" — the audit log holds the whole plan, but nothing surfaced the
+  term-versus-attribute split without a throwaway script. `logs terms` reports
+  terms named, definitions reached transitively, terms refused as undefined, and
+  raw attributes filtered on. The last of those is the same logic as the
+  recurring-raw-SQL report one level up: a field spelled out over and over is a
+  concept being restated rather than named.
+
 - **2026-09-08 · phase 8 · the guard is the second fence, not the first.** The
   plan's forbidden-keyword list does not cover `read_csv` and friends, and it
   should not: listing every catalog function that touches the filesystem is a

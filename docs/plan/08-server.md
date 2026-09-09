@@ -96,6 +96,14 @@ calls per tool, top 20 `raw_sql` fingerprints (whitespace collapsed, numbers
 → `N`, quoted strings → `'S'`) with counts and last-seen — "recurring raw
 queries are the roadmap for what should become a first-class attribute."
 
+`chalktalk logs terms [--since 30d]` (added 2026-09-08) is the same idea one
+level up: which terms were named in plans, which definitions were reached
+through composites, which terms were refused as undefined, and which raw
+attributes keep being filtered on. A field spelled out again and again is a
+concept the user has been restating rather than naming. It also answers the
+"did the model actually use the vocabulary?" question after the fact, which
+`summary` alone could not.
+
 ## Connect
 
 Development: `claude mcp add chalktalk -- uv --directory /path/to/chalktalk run chalktalk serve`.
