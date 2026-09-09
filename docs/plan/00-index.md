@@ -110,7 +110,7 @@ the same machinery answers ten unrelated questions.
 | 7 | done | 2026-09-08 | b104b44 | Gate B: 19/21 exits, 10/10 plans on real data |
 | 8 | done | 2026-09-08 | 98cc1a8 | 11 tools, sql guard, audit log |
 | 9 | done | 2026-09-08 | | tiers, mini DB, fixtures, CI; 614 unit + 369 data |
-| 10 | done | 2026-09-08 | _pending_ | packaging, docs, v0.1.0 |
+| 10 | done | 2026-09-08 | 884d9e8 | packaging, docs, v0.1.0 |
 
 Statuses: `not started` · `in progress` · `blocked (reason)` · `done`.
 
