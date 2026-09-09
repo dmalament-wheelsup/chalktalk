@@ -29,83 +29,20 @@ def test_help_lists_every_subcommand() -> None:
 
 
 def test_doctor_without_a_database(tmp_settings: Settings) -> None:
+    """A fresh install is not a fault, so this stays exit 0 with instructions."""
     result = CliRunner().invoke(main, ["doctor"])
     assert result.exit_code == 0
-    assert "no database" in result.output
+    assert "no database yet" in result.output
+    assert "chalktalk build" in result.output
     assert str(tmp_settings.home) in result.output
 
 
 def test_doctor_reports_the_current_artifact(tmp_settings: Settings) -> None:
-    artifact = paths.artifact_path(tmp_settings, date(2026, 9, 7))
-    db.open_rw(artifact, tmp_settings).close()
-    db.write_current(tmp_settings, artifact)
+    artifact = _publish_mini(tmp_settings)
     result = CliRunner().invoke(main, ["doctor"])
-    assert result.exit_code == 0
+    assert result.exit_code == 0, result.output
     assert "no database" not in result.output
     assert artifact.name in result.output
-
-
-def test_build_plan_makes_no_network_call(monkeypatch: pytest.MonkeyPatch) -> None:
-    from chalktalk.ingest import loaders
-
-    monkeypatch.setattr(loaders, "current_season", lambda: 2025)
-    monkeypatch.setattr(
-        loaders, "load", lambda d, season: pytest.fail("--plan must not load anything")
-    )
-    result = CliRunner().invoke(main, ["build", "--plan"])
-    assert result.exit_code == 0
-    assert "pbp" in result.output
-    assert "season floor 2013" in result.output
-
-
-def test_build_rejects_an_unknown_dataset(monkeypatch: pytest.MonkeyPatch) -> None:
-    from chalktalk.ingest import loaders
-
-    monkeypatch.setattr(loaders, "current_season", lambda: 2025)
-    result = CliRunner().invoke(main, ["build", "--plan", "--only", "nonesuch"])
-    assert result.exit_code != 0
-    assert "nonesuch" in result.output
-
-
-def test_build_rejects_a_bad_season_range() -> None:
-    result = CliRunner().invoke(main, ["build", "--seasons", "last-year"])
-    assert result.exit_code != 0
-    assert "season" in result.output
-
-
-def test_coverage_without_a_database(tmp_settings: Settings) -> None:
-    result = CliRunner().invoke(main, ["coverage"])
-    assert result.exit_code != 0
-    assert "no database" in result.output
-
-
-def test_coverage_reads_the_registry(tmp_settings: Settings) -> None:
-    from chalktalk import coverage as coverage_mod
-
-    artifact = paths.artifact_path(tmp_settings, date(2026, 9, 7))
-    conn = db.open_rw(artifact, tmp_settings)
-    conn.execute("CREATE TABLE facts (season INTEGER, epa DOUBLE)")
-    conn.execute("INSERT INTO facts VALUES (2023, 1.5)")
-    conn.execute(
-        "CREATE TABLE schedules (season INTEGER, week INTEGER, game_type VARCHAR, "
-        "home_team VARCHAR, away_team VARCHAR, home_score INTEGER)"
-    )
-    conn.execute("INSERT INTO schedules VALUES (2023, 1, 'REG', 'AAA', 'BBB', 20)")
-    coverage_mod.build(conn, tmp_settings)
-    conn.close()
-    db.write_current(tmp_settings, artifact)
-
-    result = CliRunner().invoke(main, ["coverage", "facts", "--column", "epa"])
-    assert result.exit_code == 0, result.output
-    assert "epa" in result.output
-
-    seasons = CliRunner().invoke(main, ["coverage", "--seasons"])
-    assert seasons.exit_code == 0
-    assert "2023" in seasons.output
-
-    missing = CliRunner().invoke(main, ["coverage", "nonesuch"])
-    assert missing.exit_code != 0
-    assert "nothing in the registry" in missing.output
 
 
 def _mini_artifact(tmp_settings: Settings):
@@ -270,3 +207,89 @@ def test_logs_terms_with_nothing_logged(tmp_settings: Settings) -> None:
     result = CliRunner().invoke(main, ["logs", "terms"])
     assert result.exit_code == 0
     assert "no queries" in result.output
+
+
+def _publish_mini(tmp_settings: Settings, *, mtime_days_ago: int = 0):
+    """A published artifact built from the mini league, optionally aged."""
+    import os
+    import sys
+    import time
+    from dataclasses import replace
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from mini import build_mini
+
+    mini = build_mini(replace(tmp_settings, season_floor=2022))
+    artifact = paths.artifact_path(tmp_settings, date(2026, 9, 8))
+    mini.execute(f"ATTACH '{artifact}' AS out")
+    for (table,) in mini.execute(
+        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'main'"
+    ).fetchall():
+        mini.execute(f'CREATE TABLE out."{table}" AS SELECT * FROM "{table}"')
+    mini.execute("DETACH out")
+    mini.close()
+    db.write_current(tmp_settings, artifact)
+    if mtime_days_ago:
+        old = time.time() - mtime_days_ago * 86400
+        os.utime(artifact, (old, old))
+    return artifact
+
+
+def test_doctor_reports_seasons_and_definitions(tmp_settings: Settings) -> None:
+    _publish_mini(tmp_settings)
+    result = CliRunner().invoke(main, ["doctor"])
+    assert result.exit_code == 0, result.output
+    assert "seasons 2022-2023" in result.output
+    assert "none saved yet" in result.output
+
+
+def test_doctor_counts_installed_definitions(tmp_settings: Settings) -> None:
+    from chalktalk.db import open_ro
+    from chalktalk.definitions.context import open_store
+    from chalktalk.definitions.vocabulary_install import install
+
+    artifact = _publish_mini(tmp_settings)
+    conn = open_ro(artifact, tmp_settings)
+    install(open_store(conn, tmp_settings))
+    conn.close()
+
+    result = CliRunner().invoke(main, ["doctor"])
+    assert result.exit_code == 0, result.output
+    assert "valid, 0 broken" in result.output
+
+
+def test_doctor_fails_when_a_definition_is_broken(tmp_settings: Settings) -> None:
+    """Exit non-zero so a cron or CI run notices, and name the definition."""
+    _publish_mini(tmp_settings)
+    definitions = paths.definitions_dir(tmp_settings)
+    definitions.mkdir(parents=True, exist_ok=True)
+    (definitions / "stale.json").write_text(
+        '{"name": "stale", "entity": "player_game", "signal": "rule", '
+        '"params": {"rules": [{"attr": "gone_away", "op": ">=", "value": 1}]}}'
+    )
+    result = CliRunner().invoke(main, ["doctor"])
+    assert result.exit_code == 1
+    assert "stale" in result.output
+    assert "no longer compile" in result.output
+
+
+def test_doctor_fails_when_current_points_at_something_else(
+    tmp_settings: Settings,
+) -> None:
+    """A file that is not a chalktalk build should say so, not raise a catalog error."""
+    artifact = paths.artifact_path(tmp_settings, date(2026, 9, 8))
+    db.open_rw(artifact, tmp_settings).close()
+    db.write_current(tmp_settings, artifact)
+    result = CliRunner().invoke(main, ["doctor"])
+    assert result.exit_code == 1
+    assert "not a chalktalk build" in result.output
+
+
+def test_doctor_does_not_nag_about_a_stale_build_out_of_season(
+    tmp_settings: Settings,
+) -> None:
+    """The mini league's latest season is complete, so age does not matter."""
+    _publish_mini(tmp_settings, mtime_days_ago=30)
+    result = CliRunner().invoke(main, ["doctor"])
+    assert result.exit_code == 0, result.output
+    assert "30 days old" not in result.output

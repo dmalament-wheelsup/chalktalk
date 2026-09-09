@@ -11,6 +11,7 @@ from importlib import metadata
 from pathlib import Path
 
 import click
+import duckdb
 
 from chalktalk import __version__
 from chalktalk.config import Settings
@@ -502,7 +503,11 @@ def logs_summary(since: str, top: int) -> None:
 
 @main.command()
 def doctor() -> None:
-    """Print resolved paths, database status and dependency versions."""
+    """Print resolved paths, database status, definitions and dependency versions."""
+    from datetime import UTC, datetime
+
+    from chalktalk.db import open_ro
+
     s = Settings.load()
     current = read_current(s)
 
@@ -517,14 +522,94 @@ def doctor() -> None:
     print(f"  cache          {cache_dir(s)}")
     print(f"  CURRENT        {current_pointer(s)}")
     print()
+
+    # A missing database is a normal fresh-install state, not a fault. Only
+    # something genuinely broken should make this exit non-zero, so that
+    # `chalktalk doctor || alert` in a cron means what it says.
+    problems: list[str] = []
+    warnings: list[str] = []
+
     print("database")
     if current is None:
-        print("  no database — CURRENT is missing or names a file that isn't there")
+        print("  no database yet — CURRENT is missing or names a file that isn't there")
         print("  run: chalktalk build")
     else:
-        print(f"  {current} ({current.stat().st_size / 1e9:.2f} GB)")
+        size = current.stat().st_size / 1e9
+        age = (datetime.now(UTC) - datetime.fromtimestamp(current.stat().st_mtime, UTC)).days
+        print(f"  {current} ({size:.2f} GB, built {age} day{'' if age == 1 else 's'} ago)")
+
+        conn = open_ro(current, s)
+        try:
+            _report_seasons(conn, s, age, warnings)
+            _report_definitions(conn, s, problems)
+        except duckdb.Error as exc:
+            print(f"  this file is not a chalktalk build: {str(exc).splitlines()[0]}")
+            problems.append("CURRENT points at something that is not a chalktalk build")
+        finally:
+            conn.close()
+
     print()
     print("versions")
     print(f"  python         {platform.python_version()}")
     for dist in ("duckdb", "nflreadpy", "polars", "pyarrow", "mcp"):
         print(f"  {dist:<14} {_dep_version(dist)}")
+
+    if warnings:
+        print()
+        print("warnings")
+        for warning in warnings:
+            print(f"  - {warning}")
+
+    if problems:
+        print()
+        print("problems")
+        for problem in problems:
+            print(f"  ! {problem}")
+        raise SystemExit(1)
+
+
+#: During the season a build older than this is probably missing a week.
+STALE_AFTER_DAYS = 8
+
+
+def _report_seasons(conn, s: Settings, age_days: int, warnings: list[str]) -> None:
+    from chalktalk.coverage import Coverage
+
+    coverage = Coverage(conn, s)
+    seasons = coverage.queryable_seasons()
+    if not seasons:
+        print("  no queryable seasons")
+        warnings.append("the database holds no queryable season")
+        return
+
+    latest = coverage.status(seasons[-1])
+    in_progress = bool(latest and latest.in_progress)
+    state = "in progress" if in_progress else "complete"
+    print(f"  seasons {seasons[0]}-{seasons[-1]} ({len(seasons)}), {seasons[-1]} {state}")
+    if in_progress:
+        print(f"    {seasons[-1]} is still being played, so its numbers will change")
+        if age_days >= STALE_AFTER_DAYS:
+            warnings.append(
+                f"the season is in progress and this build is {age_days} days old; "
+                "run `chalktalk build` to pick up the games since"
+            )
+
+
+def _report_definitions(conn, s: Settings, problems: list[str]) -> None:
+    from chalktalk.definitions.context import open_store
+
+    store = open_store(conn, s)
+    valid = len(store.list(include_broken=False))
+    print()
+    print("definitions")
+    if not valid and not store.broken:
+        print("  none saved yet — run: chalktalk defs install")
+        return
+    print(f"  {valid} valid, {len(store.broken)} broken")
+    for name, why in sorted(store.broken.items()):
+        print(f"    {name}: {why}")
+    if store.broken:
+        problems.append(
+            f"{len(store.broken)} definition(s) no longer compile; "
+            "`chalktalk defs show NAME` to see why"
+        )
