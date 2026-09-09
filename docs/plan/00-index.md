@@ -109,8 +109,8 @@ the same machinery answers ten unrelated questions.
 | 6 | done | 2026-09-08 | 011a504 | gate + compiler + envelope; 10/10 plans compile; season-lag amendment 2026-09-08 |
 | 7 | done | 2026-09-08 | b104b44 | Gate B: 19/21 exits, 10/10 plans on real data |
 | 8 | done | 2026-09-08 | 98cc1a8 | 11 tools, sql guard, audit log |
-| 9 | in progress | 2026-09-07 | | tiers + unit CI in place; fixtures and mini DB land with phases 4/7 |
-| 10 | not started | | | |
+| 9 | done | 2026-09-08 | | tiers, mini DB, fixtures, CI; 614 unit + 369 data |
+| 10 | done | 2026-09-08 | _pending_ | packaging, docs, v0.1.0 |
 
 Statuses: `not started` · `in progress` · `blocked (reason)` · `done`.
 
@@ -466,6 +466,28 @@ _(Sessions append here: date · phase · what was wrong · what changed.)_
   (INTEGER, DOUBLE in three seasons from 2020). Phase 4 must cast
   `jersey_number`/`draft_number` rather than assume a number. The lossless test
   fails on any coercion to text that is *not* in `type_conflicts`.
+
+- **2026-09-08 · phase 10 · `chalktalk` is free on PyPI**, so the `chalktalk-mcp`
+  fallback in step 1 is not needed. The shipped definitions are in the wheel
+  (`[tool.hatch.build.targets.wheel] artifacts`), verified by installing it into
+  a clean `CHALKTALK_HOME`.
+
+- **2026-09-08 · phase 10 · `doctor`'s exit code now means something, and a
+  missing database is not a fault.** Step 5 asks doctor to validate definitions
+  and warn about a stale build. Making all of that non-zero would have broken
+  phase 1's acceptance (`doctor` exits 0 with no database) and cried wolf on a
+  fresh install. So: 0 for informational states, including no database and a
+  stale build during the season; 1 only for a broken definition or a `CURRENT`
+  pointing at something that is not a chalktalk build — which previously
+  surfaced as a raw DuckDB catalog error.
+
+- **2026-09-08 · phase 10 · `CLAUDE.md` needed less syncing than step 3
+  assumed.** The six entities, five signals, `query(plan)` and participation's
+  2016–2025 were already right; earlier phases had amended them as they landed.
+  What was stale: `early_exit` described as "a composite of six smaller
+  definitions" (it reaches eleven), and no statement anywhere that the thing is
+  built. A Status section now says so and names the two measured limitations, so
+  a reader meets them before trusting a number rather than after.
 
 - **2026-09-08 · phase 8 · `chalktalk logs terms` added.** `logs summary`
   answers "what was asked" but not "did it go through the vocabulary or around

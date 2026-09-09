@@ -137,18 +137,102 @@ What a session looks like:
 
 ```
 you   How many times have star players played fewer than 15 snaps
-      before leaving with injury?
+      before leaving with injury? By season.
+
       → unresolved_term: star_player
-        star_by_snaps     top 10% of snap share last season, within position group
-        star_by_contract  top 10% of pay as a share of the cap
-        star_by_draft     a first-round pick
+          star_by_snaps     top 10% of snap share last season, within position group
+          star_by_contract  top 10% of pay as a share of the cap, within position group
+          star_by_draft     a first-round pick
+
 you   the contract one
-      → saved as star_player; 2013-2025
-      → 61 player-games, by season, with the rows behind them
+
+      → saved star_player, copied from star_by_contract
+      → Count of player-games (REG, 2013–2025) where star_player [prior season]
+        and early_exit and snaps_unit < 15, by season.
+
+        2013  2    2016  5    2019  3    2022  6
+        2014  4    2017  7    2020  4    2023  5
+        …
+
+        definitions used: star_player, early_exit, played, regular, left_early,
+        snap_drop, exit_evidence, listed_injured_next, on_reserve_soon,
+        started, missed_next_game_as_starter, exit_corroborated
+        warning: participation evidence is unavailable before 2016; snap_drop
+                 carries the evidence in 2013–2015
 ```
 
 The refusal is the point. Ask again next week and it answers straight away,
-because `star_player` now means something you chose.
+because `star_player` now means the thing you chose — and every answer says so.
+
+Three things always come back with the number: the definitions behind it, the
+seasons it could actually cover, and a sample of the matched rows. That last one
+matters more than it sounds. A rested starter in the final week looks identical
+in the data to an injury exit, so the rows are how you catch a wrong one.
+
+## Your definitions
+
+They live in `$CHALKTALK_HOME/definitions/`, one JSON file each, outside the
+database — which is discarded and rebuilt every week. Losing them to a data
+refresh would be the worst bug this could have, so they are kept somewhere a
+rebuild cannot reach.
+
+```bash
+cd ~/.chalktalk/definitions && git init && git add -A && git commit -m "my vocabulary"
+```
+
+That is the whole backup story: they are plain JSON, so they diff, they merge,
+and you can edit one by hand and the server picks it up. Previous versions are
+kept under `.history/` whenever you overwrite or delete one.
+
+```bash
+uv run chalktalk defs list              # what you have
+uv run chalktalk defs show early_exit   # what it means, all the way down
+uv run chalktalk defs export ~/backup   # or import, for sharing a set
+```
+
+`chalktalk logs terms` tells you which of them you actually reach for, and which
+raw fields you keep spelling out instead of naming.
+
+## Rebuilding
+
+The database is disposable and versioned by date. Rebuild it weekly during the
+season — the whole thing takes about a minute and the old artifact stays on disk.
+
+```bash
+0 6 * * 3 /Users/you/.local/bin/uv --directory /path/to/chalktalk run chalktalk build
+```
+
+On macOS, launchd is more reliable than cron for a laptop that sleeps. Save this
+as `~/Library/LaunchAgents/com.chalktalk.build.plist` and
+`launchctl load` it:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.chalktalk.build</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/you/.local/bin/uv</string>
+    <string>--directory</string><string>/path/to/chalktalk</string>
+    <string>run</string><string>chalktalk</string><string>build</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>6</integer></dict>
+  <key>StandardErrorPath</key><string>/tmp/chalktalk-build.log</string>
+</dict></plist>
+```
+
+**Rollback is editing one file.** `data/CURRENT` holds the filename the server
+opens; point it at the previous artifact and the next tool call picks it up
+without a restart.
+
+```bash
+ls ~/.chalktalk/data/                       # the last three builds are kept
+echo nfl-20260901.duckdb > ~/.chalktalk/data/CURRENT
+```
+
+`chalktalk doctor` will tell you what is currently loaded, how old it is, and
+whether any of your definitions stopped compiling against it.
 
 ## Design
 

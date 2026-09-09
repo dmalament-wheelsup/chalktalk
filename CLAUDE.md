@@ -12,6 +12,21 @@ Implementation plan: [`docs/plan/00-index.md`](docs/plan/00-index.md) — phases
 status ledger, and every resolved decision (D1–D23). Start there before writing
 code. Where this file and the plan disagree on a name, the plan is current.
 
+## Status
+
+Built and working. `chalktalk build` pulls nflverse into one DuckDB file,
+`chalktalk serve` exposes eleven MCP tools over stdio, and 45 definitions ship.
+The phase ledger and every resolved decision are in
+[`docs/plan/00-index.md`](docs/plan/00-index.md); the README covers installing,
+connecting and rebuilding.
+
+Two things the gates found that are worth knowing before trusting a number:
+`early_exit` matches Robert Hainsey's rested 2022 week 18, because nothing in
+the data distinguishes "displaced by a returning teammate" from "injured"; and
+`star_by_snaps` barely discriminates among quarterbacks, since every starter
+plays essentially every snap. Both are recorded rather than papered over —
+`docs/decision-history.md` has the numbers.
+
 ## The bet
 
 The valuable unit is not the answer. It's the **definition** the answer rests on.
@@ -99,11 +114,12 @@ attributes, each with a coverage window. **Five general signals** — `rule`,
 `percentile`, `rank`, `delta`, `composite` — the only ways a definition can be
 expressed; none knows what a "star" or an "injury" is. **Definitions** built
 from those signals, shipped and user-authored alike (`early_exit` is a
-composite of six smaller definitions, not code). A **gate, compiler and
-envelope** over structured plans. No concept ever gets its own code: if it
+composite reaching eleven smaller definitions, not code). A **gate, compiler
+and envelope** over structured plans. No concept ever gets its own code: if it
 cannot be expressed in the five signals, the feature layer is missing an
 attribute. The injury question above is one instance; the acceptance test is
-ten unrelated questions running on definitions alone (plan, phase 7).
+ten unrelated questions running on definitions alone (plan, phase 7). All ten
+run, and none needed a line of code.
 
 Single process. One DuckDB file on local disk. No object storage in the query
 path, no serverless, no cold starts. The dataset is ~1–1.5M plays; this is not a
